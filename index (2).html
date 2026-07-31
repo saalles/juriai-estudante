@@ -1,0 +1,1418 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Juri IA Estudante</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<style>
+  .auth-wrap { max-width: 380px; margin: 80px auto; padding: 0 20px; }
+  .auth-toggle { display: flex; gap: 0; margin-bottom: 20px; border: 1px solid var(--line); }
+  .auth-toggle button {
+    flex: 1; background: transparent; border: none; color: var(--parchment-dim);
+    font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 12px; letter-spacing: 1px;
+    text-transform: uppercase; padding: 12px; cursor: pointer;
+  }
+  .auth-toggle button.active { background: var(--wine); color: var(--parchment); }
+  .auth-input {
+    width: 100%; background: var(--ink-2); border: 1px solid var(--line);
+    color: var(--parchment); font-family: inherit; font-size: 14px;
+    padding: 12px; margin-bottom: 12px;
+  }
+  .topbar-user {
+    font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 11px; color: var(--parchment-dim);
+    display: flex; align-items: center; gap: 10px;
+  }
+  .logout-link { color: var(--brass); cursor: pointer; text-decoration: underline; }
+  .progress-row {
+    display: flex; align-items: center; gap: 12px; border: 1px solid var(--line);
+    padding: 12px 14px; margin-bottom: 8px;
+  }
+  .progress-row .area-name { width: 110px; font-size: 13px; text-transform: capitalize; }
+  .progress-bar-track { flex: 1; height: 8px; background: var(--ink-2); position: relative; }
+  .progress-bar-fill { height: 100%; background: var(--brass); }
+  .progress-avg { width: 40px; text-align: right; font-size: 13px; color: var(--brass); }
+  .history-item {
+    border: 1px solid var(--line); padding: 12px 14px; margin-bottom: 8px;
+    font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 12px;
+  }
+  .history-item .h-title { font-family: Georgia, serif; font-size: 14px; margin-bottom: 4px; }
+  .history-item .h-meta { color: var(--parchment-dim); }
+  .history-item .h-scores { color: var(--brass); margin-top: 4px; }
+  :root {
+    --ink: #12161F;
+    --ink-2: #1B2130;
+    --parchment: #E9E4D6;
+    --parchment-dim: #A9A38F;
+    --wine: #7A2632;
+    --wine-bright: #A6333F;
+    --brass: #B7924F;
+    --line: #2C3346;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--ink);
+    color: var(--parchment);
+    font-family: 'Georgia', 'Iowan Old Style', serif;
+    min-height: 100vh;
+  }
+  .app { max-width: 780px; margin: 0 auto; padding: 0 20px 60px; }
+
+  /* Top nav */
+  .topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 20px 0 14px; border-bottom: 1px solid var(--line); margin-bottom: 20px;
+  }
+  .brand { font-size: 18px; letter-spacing: 0.5px; }
+  .brand .accent { color: var(--brass); }
+  .tabs { display: flex; gap: 4px; }
+  .tab-btn {
+    font-family: 'Helvetica Neue', Arial, sans-serif;
+    background: transparent; border: 1px solid transparent; color: var(--parchment-dim);
+    padding: 8px 14px; font-size: 12px; letter-spacing: 0.8px; text-transform: uppercase;
+    cursor: pointer;
+  }
+  .tab-btn:hover { color: var(--parchment); }
+  .tab-btn.active { color: var(--parchment); border-bottom: 2px solid var(--wine-bright); }
+  @media (max-width: 640px) {
+    .topbar { flex-direction: column; align-items: flex-start; gap: 12px; }
+  }
+
+  .docket {
+    border: 1px solid var(--line);
+    padding: 18px 20px;
+    margin-bottom: 24px;
+    position: relative;
+  }
+  .docket::before {
+    content: attr(data-tag);
+    position: absolute; top: -10px; left: 16px;
+    background: var(--ink); padding: 0 8px;
+    font-family: 'Helvetica Neue', Arial, sans-serif;
+    font-size: 10px; letter-spacing: 2px; color: var(--brass);
+  }
+  h1 { font-size: 26px; margin: 4px 0 2px; font-weight: 400; letter-spacing: 0.5px; }
+  .sub {
+    font-family: 'Helvetica Neue', Arial, sans-serif;
+    font-size: 12px; color: var(--parchment-dim);
+    letter-spacing: 1px; text-transform: uppercase;
+  }
+
+  .setup-grid { display: grid; gap: 18px; }
+  .field label {
+    display: block; font-family: 'Helvetica Neue', Arial, sans-serif;
+    font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase;
+    color: var(--brass); margin-bottom: 8px;
+  }
+  .pill-row { display: flex; flex-wrap: wrap; gap: 8px; }
+  .pill {
+    font-family: 'Helvetica Neue', Arial, sans-serif;
+    background: transparent; color: var(--parchment-dim);
+    border: 1px solid var(--line); padding: 9px 16px;
+    font-size: 13px; cursor: pointer; letter-spacing: 0.3px;
+    transition: all 0.15s ease;
+  }
+  .pill:hover { border-color: var(--brass); color: var(--parchment); }
+  .pill.active { background: var(--wine); border-color: var(--wine-bright); color: var(--parchment); }
+
+  .case-card {
+    border: 1px solid var(--line); padding: 14px 16px; cursor: pointer;
+    margin-bottom: 8px; transition: border-color 0.15s ease;
+  }
+  .case-card:hover { border-color: var(--brass); }
+  .case-card.active { border-color: var(--wine-bright); background: rgba(122,38,50,0.12); }
+  .case-title { font-size: 15px; margin-bottom: 4px; }
+  .case-meta {
+    font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 11px;
+    color: var(--parchment-dim); letter-spacing: 0.5px; text-transform: uppercase;
+  }
+  .case-desc { font-size: 13px; color: var(--parchment-dim); margin-top: 6px; line-height: 1.5; }
+  .case-scroll { max-height: 420px; overflow-y: auto; padding-right: 4px; }
+
+  textarea.own-case, textarea.free-input {
+    width: 100%; background: var(--ink-2); border: 1px solid var(--line);
+    color: var(--parchment); font-family: inherit; font-size: 14px;
+    padding: 12px; min-height: 80px; resize: vertical;
+  }
+
+  .cta {
+    font-family: 'Helvetica Neue', Arial, sans-serif;
+    background: var(--wine); color: var(--parchment);
+    border: 1px solid var(--wine-bright); padding: 14px 28px;
+    font-size: 13px; letter-spacing: 1.5px; text-transform: uppercase;
+    cursor: pointer; margin-top: 8px; width: 100%;
+  }
+  .cta:hover { background: var(--wine-bright); }
+  .cta:disabled { opacity: 0.4; cursor: not-allowed; }
+  .cta.ghost { background: transparent; border: 1px solid var(--line); color: var(--parchment-dim); }
+  .cta.ghost:hover { border-color: var(--brass); color: var(--parchment); }
+
+  .vs-header { display: flex; align-items: center; justify-content: center; gap: 16px; margin-bottom: 20px; }
+  .side-tag {
+    font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 11px;
+    letter-spacing: 1.5px; text-transform: uppercase; padding: 6px 12px; border: 1px solid var(--line);
+  }
+  .vs-mark { color: var(--brass); font-size: 12px; letter-spacing: 3px; }
+
+  .transcript { display: flex; flex-direction: column; gap: 14px; margin-bottom: 20px; }
+  .msg { max-width: 88%; padding: 12px 16px; line-height: 1.55; font-size: 14.5px; }
+  .msg.student { align-self: flex-end; background: var(--ink-2); border-right: 3px solid var(--brass); }
+  .msg.adversary { align-self: flex-start; background: rgba(122,38,50,0.15); border-left: 3px solid var(--wine-bright); }
+  .msg-label {
+    font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 10px;
+    letter-spacing: 1.5px; text-transform: uppercase; color: var(--parchment-dim); margin-bottom: 6px;
+  }
+
+  .input-row { display: flex; gap: 10px; }
+  textarea.arg-input {
+    flex: 1; background: var(--ink-2); border: 1px solid var(--line);
+    color: var(--parchment); font-family: inherit; font-size: 14px;
+    padding: 12px; min-height: 60px; resize: vertical;
+  }
+  .send-btn {
+    font-family: 'Helvetica Neue', Arial, sans-serif;
+    background: var(--brass); color: var(--ink); border: none;
+    padding: 0 20px; font-size: 12px; letter-spacing: 1px; text-transform: uppercase;
+    cursor: pointer; min-width: 90px;
+  }
+  .send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .thinking { font-size: 13px; color: var(--parchment-dim); font-style: italic; padding: 8px 0; }
+  .end-row { margin-top: 18px; display: flex; gap: 10px; }
+
+  .verdict-header { text-align: center; margin-bottom: 26px; }
+  .verdict-header .label {
+    font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 11px;
+    letter-spacing: 3px; text-transform: uppercase; color: var(--brass);
+  }
+  .verdict-header h1 { margin-top: 6px; }
+
+  .scores { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 26px; }
+  .score-box { border: 1px solid var(--line); padding: 16px 10px; text-align: center; }
+  .score-num { font-size: 32px; color: var(--brass); line-height: 1; }
+  .score-label {
+    font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 10px;
+    letter-spacing: 0.5px; color: var(--parchment-dim); margin-top: 8px; line-height: 1.4;
+  }
+
+  .section-block { margin-bottom: 22px; }
+  .section-block h3 {
+    font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 11px;
+    letter-spacing: 2px; text-transform: uppercase; color: var(--brass);
+    border-bottom: 1px solid var(--line); padding-bottom: 8px; margin-bottom: 12px;
+  }
+  .point { font-size: 14px; line-height: 1.6; margin-bottom: 10px; padding-left: 16px; position: relative; }
+  .point::before { content: "—"; position: absolute; left: 0; color: var(--parchment-dim); }
+
+  .study-box {
+    border: 1px solid var(--wine-bright); background: rgba(122,38,50,0.1);
+    padding: 16px; font-size: 14px; line-height: 1.6;
+  }
+
+  .answer-box {
+    border: 1px solid var(--line); padding: 18px; font-size: 14.5px; line-height: 1.7;
+    background: var(--ink-2); white-space: pre-wrap;
+  }
+
+  .hidden { display: none; }
+  .error { color: var(--wine-bright); font-size: 13px; margin-top: 10px; font-family: 'Helvetica Neue', Arial, sans-serif; }
+</style>
+</head>
+<body>
+
+<div id="auth-screen">
+  <div class="auth-wrap">
+    <div class="docket" data-tag="ACESSO">
+      <div class="sub">Juri IA Estudante</div>
+      <h1 id="auth-title">Entrar</h1>
+    </div>
+    <div class="auth-toggle">
+      <button id="toggle-login" class="active">Entrar</button>
+      <button id="toggle-signup">Criar conta</button>
+    </div>
+    <input class="auth-input" type="email" id="auth-email" placeholder="Email">
+    <input class="auth-input" type="password" id="auth-password" placeholder="Senha (mín. 6 caracteres)">
+    <button class="cta" id="auth-submit">Entrar</button>
+    <div class="error hidden" id="auth-error"></div>
+    <div class="thinking hidden" id="auth-loading">Processando...</div>
+  </div>
+</div>
+
+<div class="app hidden" id="app-root">
+
+  <div class="topbar">
+    <div class="brand">Juri IA <span class="accent">Estudante</span></div>
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="debate">Debate</button>
+      <button class="tab-btn" data-tab="explicador">Explicador</button>
+      <button class="tab-btn" data-tab="corretor">Corretor</button>
+      <button class="tab-btn" data-tab="simulado">Simulado OAB</button>
+      <button class="tab-btn" data-tab="fichamento">Fichamento</button>
+      <button class="tab-btn" data-tab="progresso">Progresso</button>
+    </div>
+    <div class="topbar-user">
+      <span id="user-email"></span>
+      <span class="logout-link" id="logout-btn">sair</span>
+    </div>
+  </div>
+
+  <!-- ======================= TAB: DEBATE ======================= -->
+  <div id="tab-debate" class="tab-panel">
+
+    <div id="setup-screen">
+      <div class="docket" data-tag="SIMULADOR DE DEBATE">
+        <div class="sub">Juri IA Estudante</div>
+        <h1>Debate Jurídico</h1>
+      </div>
+      <div class="setup-grid">
+        <div class="field">
+          <label>1. Área do direito</label>
+          <div class="pill-row" id="area-row"></div>
+        </div>
+        <div class="field">
+          <label>2. Escolha o caso</label>
+          <div class="case-scroll" id="case-list"></div>
+          <details style="margin-top:10px;">
+            <summary style="font-family:'Helvetica Neue',Arial,sans-serif; font-size:12px; color:var(--parchment-dim); cursor:pointer; letter-spacing:0.5px;">ou descreva seu próprio caso</summary>
+            <textarea class="own-case" id="own-case" placeholder="Descreva os fatos do caso hipotético..." style="margin-top:10px;"></textarea>
+          </details>
+        </div>
+        <div class="field">
+          <label>3. Seu lado</label>
+          <div class="pill-row" id="side-row"></div>
+        </div>
+        <div class="field">
+          <label>4. Nível do adversário</label>
+          <div class="pill-row" id="level-row">
+            <button class="pill" data-val="iniciante">Iniciante</button>
+            <button class="pill" data-val="intermediario">Intermediário</button>
+            <button class="pill" data-val="avancado">Avançado</button>
+          </div>
+        </div>
+        <button class="cta" id="start-btn" disabled>Iniciar Debate</button>
+        <div class="error hidden" id="setup-error"></div>
+      </div>
+    </div>
+
+    <div id="debate-screen" class="hidden">
+      <div class="vs-header">
+        <span class="side-tag" id="tag-student"></span>
+        <span class="vs-mark">VERSUS</span>
+        <span class="side-tag" id="tag-adversary"></span>
+      </div>
+      <div class="transcript" id="transcript"></div>
+      <div class="thinking hidden" id="thinking">O adversário está formulando a réplica...</div>
+      <div class="input-row">
+        <textarea class="arg-input" id="arg-input" placeholder="Digite seu argumento..."></textarea>
+        <button class="send-btn" id="send-btn">Enviar</button>
+      </div>
+      <div class="end-row">
+        <button class="cta ghost" id="end-btn" style="flex:1;">Encerrar debate e ver feedback</button>
+      </div>
+      <div class="error hidden" id="debate-error"></div>
+    </div>
+
+    <div id="feedback-screen" class="hidden">
+      <div class="verdict-header">
+        <div class="label">Sentença</div>
+        <h1>Feedback do Debate</h1>
+      </div>
+      <div class="thinking" id="feedback-loading">Avaliando sua argumentação...</div>
+      <div id="feedback-content" class="hidden">
+        <div class="scores">
+          <div class="score-box"><div class="score-num" id="score-1">–</div><div class="score-label">Solidez dos<br>argumentos</div></div>
+          <div class="score-box"><div class="score-num" id="score-2">–</div><div class="score-label">Fundamentos<br>legais</div></div>
+          <div class="score-box"><div class="score-num" id="score-3">–</div><div class="score-label">Capacidade<br>de réplica</div></div>
+        </div>
+        <div class="section-block"><h3>Pontos fortes</h3><div id="strengths"></div></div>
+        <div class="section-block"><h3>Pontos a melhorar</h3><div id="weaknesses"></div></div>
+        <div class="section-block"><h3>Sugestão de estudo</h3><div class="study-box" id="study-suggestion"></div></div>
+        <button class="cta" id="restart-btn">Novo debate</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================= TAB: EXPLICADOR ======================= -->
+  <div id="tab-explicador" class="tab-panel hidden">
+    <div class="docket" data-tag="DOUTRINA EM LINGUAGEM SIMPLES">
+      <div class="sub">Juri IA Estudante</div>
+      <h1>Explicador de Doutrina</h1>
+    </div>
+    <div class="setup-grid">
+      <div class="field">
+        <label>O que você quer entender?</label>
+        <textarea class="free-input" id="doutrina-input" placeholder="Ex: responsabilidade civil objetiva, princípio da insignificância, boa-fé objetiva..."></textarea>
+      </div>
+      <div class="field">
+        <label>Explicar como se eu tivesse...</label>
+        <div class="pill-row" id="doutrina-level-row">
+          <button class="pill" data-val="15 anos, usando linguagem bem simples e exemplos do dia a dia">15 anos</button>
+          <button class="pill active" data-val="um calouro de Direito, com linguagem acessível mas já usando os termos técnicos corretos entre parênteses">Calouro de Direito</button>
+          <button class="pill" data-val="alguém se preparando para a prova da OAB, direto ao ponto, com foco no que cai em prova">Foco OAB</button>
+        </div>
+      </div>
+      <button class="cta" id="doutrina-btn">Explicar</button>
+      <div class="error hidden" id="doutrina-error"></div>
+      <div class="thinking hidden" id="doutrina-loading">Preparando a explicação...</div>
+      <div id="doutrina-result" class="hidden">
+        <div class="section-block">
+          <h3>Explicação</h3>
+          <div class="answer-box" id="doutrina-answer"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================= TAB: CORRETOR ======================= -->
+  <div id="tab-corretor" class="tab-panel hidden">
+    <div class="docket" data-tag="CORRETOR DE PEÇAS">
+      <div class="sub">Juri IA Estudante</div>
+      <h1>Corretor de Peças</h1>
+    </div>
+    <div class="setup-grid">
+      <div class="field">
+        <label>1. Caso hipotético</label>
+        <div class="case-scroll" id="corretor-case-list"></div>
+        <details style="margin-top:10px;">
+          <summary style="font-family:'Helvetica Neue',Arial,sans-serif; font-size:12px; color:var(--parchment-dim); cursor:pointer; letter-spacing:0.5px;">ou descreva seu próprio caso</summary>
+          <textarea class="own-case" id="corretor-own-case" placeholder="Descreva os fatos do caso hipotético..." style="margin-top:10px;"></textarea>
+        </details>
+      </div>
+      <div class="field">
+        <label>2. Tipo de peça</label>
+        <div class="pill-row" id="peca-tipo-row">
+          <button class="pill" data-val="Petição Inicial">Petição Inicial</button>
+          <button class="pill" data-val="Contestação">Contestação</button>
+          <button class="pill" data-val="Recurso">Recurso</button>
+          <button class="pill" data-val="Parecer">Parecer</button>
+        </div>
+      </div>
+      <div class="field">
+        <label>3. Cole ou escreva sua peça</label>
+        <textarea class="free-input" id="peca-input" style="min-height:220px;" placeholder="Escreva sua peça aqui..."></textarea>
+      </div>
+      <button class="cta" id="corretor-btn" disabled>Corrigir</button>
+      <div class="error hidden" id="corretor-error"></div>
+      <div class="thinking hidden" id="corretor-loading">Analisando sua peça...</div>
+      <div id="corretor-result" class="hidden">
+        <div class="section-block"><h3>Erros identificados</h3><div id="corretor-erros"></div></div>
+        <div class="section-block"><h3>O que falta</h3><div id="corretor-faltando"></div></div>
+        <div class="section-block"><h3>Como melhorar</h3><div id="corretor-melhorar"></div></div>
+        <div class="section-block"><h3>Nota geral</h3><div class="study-box" id="corretor-nota"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================= TAB: SIMULADO OAB ======================= -->
+  <div id="tab-simulado" class="tab-panel hidden">
+    <div class="docket" data-tag="QUESTÕES ESTILO OAB — AUTORAIS">
+      <div class="sub">Juri IA Estudante</div>
+      <h1>Simulado OAB</h1>
+    </div>
+
+    <div id="simulado-setup" class="setup-grid">
+      <div class="field">
+        <label>Escolha a área</label>
+        <div class="pill-row" id="simulado-area-row"></div>
+      </div>
+      <button class="cta" id="simulado-start-btn" disabled>Sortear questão</button>
+    </div>
+
+    <div id="simulado-questao" class="hidden">
+      <div class="docket" data-tag="QUESTÃO">
+        <div class="sub" id="simulado-q-meta"></div>
+        <div style="font-size:15px; line-height:1.6; margin-top:8px;" id="simulado-q-enunciado"></div>
+      </div>
+      <div class="setup-grid" id="simulado-alternativas"></div>
+      <button class="cta" id="simulado-confirmar-btn" disabled>Confirmar resposta</button>
+    </div>
+
+    <div id="simulado-resultado" class="hidden">
+      <div class="verdict-header">
+        <div class="label" id="simulado-resultado-label">Resultado</div>
+        <h1 id="simulado-resultado-titulo"></h1>
+      </div>
+      <div class="thinking" id="simulado-explicacao-loading">Preparando a explicação...</div>
+      <div id="simulado-explicacao-content" class="hidden">
+        <div class="section-block">
+          <h3>Por que essa é a resposta certa — e por que as outras erram</h3>
+          <div class="answer-box" id="simulado-explicacao"></div>
+        </div>
+        <button class="cta ghost" id="simulado-proxima-btn">Próxima questão</button>
+      </div>
+    </div>
+    <div class="error hidden" id="simulado-error"></div>
+  </div>
+
+  <!-- ======================= TAB: FICHAMENTO ======================= -->
+  <div id="tab-fichamento" class="tab-panel hidden">
+    <div class="docket" data-tag="FICHAMENTO DE ACÓRDÃOS">
+      <div class="sub">Juri IA Estudante</div>
+      <h1>Fichamento Automático</h1>
+    </div>
+    <div class="setup-grid">
+      <div class="field">
+        <label>Envie o PDF do acórdão</label>
+        <input type="file" id="fichamento-file" accept="application/pdf"
+          style="width:100%; background:var(--ink-2); border:1px solid var(--line); color:var(--parchment); padding:12px; font-family:'Helvetica Neue',Arial,sans-serif; font-size:13px;">
+        <div style="font-family:'Helvetica Neue',Arial,sans-serif; font-size:11px; color:var(--parchment-dim); margin-top:6px;">
+          Uso pensado para leitura de aula: envie um acórdão para receber ementa resumida, tese jurídica central e aplicação prática.
+        </div>
+      </div>
+      <button class="cta" id="fichamento-btn" disabled>Gerar Fichamento</button>
+      <div class="error hidden" id="fichamento-error"></div>
+      <div class="thinking hidden" id="fichamento-loading">Lendo o acórdão...</div>
+      <div id="fichamento-result" class="hidden">
+        <div class="section-block"><h3>Ementa resumida</h3><div class="answer-box" id="fichamento-ementa"></div></div>
+        <div class="section-block"><h3>Tese jurídica central</h3><div class="answer-box" id="fichamento-tese"></div></div>
+        <div class="section-block"><h3>Aplicação prática</h3><div class="answer-box" id="fichamento-aplicacao"></div></div>
+      </div>
+    </div>
+  </div>
+
+
+  <div id="tab-progresso" class="tab-panel hidden">
+    <div class="docket" data-tag="EVOLUÇÃO">
+      <div class="sub">Juri IA Estudante</div>
+      <h1>Seu Progresso</h1>
+    </div>
+    <div class="thinking" id="progresso-loading">Carregando seu histórico...</div>
+    <div id="progresso-content" class="hidden">
+      <div class="section-block">
+        <h3>Média por área (solidez dos argumentos)</h3>
+        <div id="progresso-areas"></div>
+      </div>
+      <div class="section-block">
+        <h3>Debates recentes</h3>
+        <div id="progresso-historico"></div>
+      </div>
+      <div id="progresso-empty" class="hidden" style="font-family:'Helvetica Neue',Arial,sans-serif; font-size:13px; color:var(--parchment-dim);">
+        Você ainda não completou nenhum debate. Vai para a aba Debate e começa o primeiro.
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const CASES = [
+  // ---- CIVIL ----
+  { id:"civil-1", area:"civil", nivel:"intermediário", title:"Atropelamento por veículo autônomo em teste",
+    desc:"Uma montadora testava um veículo autônomo em via pública autorizada quando o sistema falhou ao identificar um pedestre atravessando fora da faixa, causando lesões graves. A montadora alega que o pedestre atravessou em local proibido e assumiu o risco. A vítima alega defeito do produto e responsabilidade objetiva.",
+    sides:[{id:"vitima",label:"Representar a Vítima"},{id:"montadora",label:"Defender a Montadora"}] },
+  { id:"civil-2", area:"civil", nivel:"iniciante", title:"Rompimento de noivado às vésperas do casamento",
+    desc:"Um noivo rompeu o noivado três dias antes da cerimônia, após a família da noiva já ter pago buffet, vestido e salão, todos não reembolsáveis. A noiva processa pedindo indenização por danos materiais e morais. O ex-noivo alega que o direito de arrependimento antes do casamento é legítimo e não gera dever de indenizar.",
+    sides:[{id:"noiva",label:"Representar a Noiva"},{id:"noivo",label:"Defender o Ex-noivo"}] },
+  { id:"civil-3", area:"civil", nivel:"intermediário", title:"Vício oculto em imóvel recém-comprado",
+    desc:"Um comprador adquiriu um apartamento e, três meses depois, descobriu infiltração estrutural grave na fundação, que o vendedor alega desconhecer. O comprador pede rescisão do contrato e devolução do valor pago. O vendedor alega que o vício não era aparente na vistoria e que o comprador comprou o imóvel 'no estado em que se encontra'.",
+    sides:[{id:"comprador",label:"Representar o Comprador"},{id:"vendedor",label:"Defender o Vendedor"}] },
+  { id:"civil-4", area:"civil", nivel:"avancado", title:"Testamento contestado por suposta incapacidade",
+    desc:"Um pai de 84 anos, diagnosticado com quadro inicial de demência dias antes, deixou testamento favorecendo apenas um dos três filhos. Os outros dois filhos contestam o testamento alegando incapacidade civil no momento da assinatura. O filho beneficiado alega que o pai estava lúcido, com testemunhas e tabelião presentes.",
+    sides:[{id:"filhos",label:"Representar os Filhos Excluídos"},{id:"beneficiado",label:"Defender o Filho Beneficiado"}] },
+  { id:"civil-5", area:"civil", nivel:"iniciante", title:"Inclusão indevida em cadastro de inadimplentes",
+    desc:"Um consumidor teve seu nome incluído no cadastro de inadimplentes por uma dívida já quitada há dois anos, o que lhe causou recusa de crédito para financiar um carro. A empresa alega falha pontual do sistema, sem dolo, e se dispõe apenas a corrigir o cadastro. O consumidor pede indenização por dano moral.",
+    sides:[{id:"consumidor",label:"Representar o Consumidor"},{id:"empresa",label:"Defender a Empresa"}] },
+
+  // ---- TRABALHO ----
+  { id:"trabalho-1", area:"trabalho", nivel:"intermediário", title:"Motorista de aplicativo busca reconhecimento de vínculo",
+    desc:"Um motorista que trabalhou 5 anos exclusivamente para uma plataforma de transporte, cumprindo metas diárias mínimas sob pena de bloqueio do aplicativo, processa a empresa pedindo reconhecimento de vínculo empregatício. A empresa alega autonomia do motorista e natureza de parceria comercial.",
+    sides:[{id:"motorista",label:"Representar o Motorista"},{id:"empresa",label:"Defender a Empresa"}] },
+  { id:"trabalho-2", area:"trabalho", nivel:"avancado", title:"Assédio moral por metas de vendas abusivas",
+    desc:"Uma vendedora processa a empresa alegando assédio moral organizacional: cobranças públicas diárias de metas, exposição de rankings de desempenho em grupo de WhatsApp e ameaças veladas de demissão. A empresa alega que se trata de gestão por resultados, prática comum e legítima no setor comercial.",
+    sides:[{id:"vendedora",label:"Representar a Vendedora"},{id:"empresa",label:"Defender a Empresa"}] },
+  { id:"trabalho-3", area:"trabalho", nivel:"avancado", title:"Terceirização de atividade-fim contestada",
+    desc:"Um trabalhador terceirizado que atuava na linha de produção principal de uma fábrica processa pedindo vínculo direto com a tomadora de serviços, alegando terceirização ilícita de atividade-fim. A tomadora alega que a terceirização é lícita desde a reforma trabalhista, inclusive para atividade-fim.",
+    sides:[{id:"trabalhador",label:"Representar o Trabalhador"},{id:"tomadora",label:"Defender a Tomadora"}] },
+  { id:"trabalho-4", area:"trabalho", nivel:"intermediário", title:"Demissão por justa causa após post em rede social",
+    desc:"Um empregado foi demitido por justa causa após publicar, em seu perfil pessoal fora do horário de trabalho, uma crítica ao produto da empresa. A empresa alega quebra de confiança e dano à imagem institucional. O empregado alega liberdade de expressão e ausência de vínculo entre o post e suas funções.",
+    sides:[{id:"empregado",label:"Representar o Empregado"},{id:"empresa",label:"Defender a Empresa"}] },
+  { id:"trabalho-5", area:"trabalho", nivel:"iniciante", title:"Acúmulo de função sem aumento salarial",
+    desc:"Uma recepcionista passou a acumular, há dois anos, também as funções de auxiliar administrativo e financeiro, sem alteração de cargo ou salário. Ela pede diferenças salariais por acúmulo de função. A empresa alega que as tarefas extras são compatíveis com a função original e não geram direito a acréscimo.",
+    sides:[{id:"recepcionista",label:"Representar a Recepcionista"},{id:"empresa",label:"Defender a Empresa"}] },
+
+  // ---- PENAL ----
+  { id:"penal-1", area:"penal", nivel:"avancado", title:"Legítima defesa em confronto doméstico",
+    desc:"Réu alega ter agredido o companheiro da ex-esposa com um objeto contundente após ser surpreendido dentro de sua própria residência por um indivíduo armado que teria feito ameaças anteriores. A acusação sustenta que não houve agressão iminente e que o réu excedeu os limites da legítima defesa.",
+    sides:[{id:"defesa",label:"Defender o Réu"},{id:"acusacao",label:"Acusar como MP"}] },
+  { id:"penal-2", area:"penal", nivel:"iniciante", title:"Furto famélico de alimentos em supermercado",
+    desc:"Um homem em situação de rua foi flagrado furtando alimentos básicos de um supermercado, alegando fome extrema e ausência de qualquer outra alternativa. A acusação sustenta que o valor subtraído era relevante e que o estado de necessidade não se aplica automaticamente a qualquer furto de comida.",
+    sides:[{id:"defesa",label:"Defender o Réu"},{id:"acusacao",label:"Acusar como MP"}] },
+  { id:"penal-3", area:"penal", nivel:"intermediário", title:"Embriaguez ao volante sem acidente",
+    desc:"Um motorista foi parado em blitz com teor alcoólico acima do limite legal, mas sem causar acidente ou colocar terceiros em risco concreto no momento da abordagem. A defesa alega ausência de perigo concreto à segurança viária. A acusação sustenta que o crime é de perigo abstrato e se consuma independentemente de resultado.",
+    sides:[{id:"defesa",label:"Defender o Réu"},{id:"acusacao",label:"Acusar como MP"}] },
+  { id:"penal-4", area:"penal", nivel:"intermediário", title:"Estelionato por venda falsa em aplicativo",
+    desc:"Um vendedor anunciou um produto eletrônico em aplicativo de vendas, recebeu o pagamento via PIX e nunca entregou a mercadoria, alegando posteriormente problemas pessoais que o impediram de cumprir o combinado. A acusação sustenta dolo desde o início; a defesa alega mero inadimplemento civil, sem intenção de fraude.",
+    sides:[{id:"defesa",label:"Defender o Réu"},{id:"acusacao",label:"Acusar como MP"}] },
+  { id:"penal-5", area:"penal", nivel:"avancado", title:"Posse de droga: uso próprio ou tráfico",
+    desc:"Um jovem foi flagrado com uma quantidade média de maconha, sem apreensão de balança, embalagens fracionadas ou grande soma em dinheiro. A acusação sustenta tráfico com base na quantidade e nos antecedentes do local. A defesa alega uso próprio, ausência de circunstâncias objetivas de comercialização e inconstitucionalidade da criminalização do porte para consumo pessoal.",
+    sides:[{id:"defesa",label:"Defender o Réu"},{id:"acusacao",label:"Acusar como MP"}] },
+
+  // ---- CONSUMIDOR ----
+  { id:"consumidor-1", area:"consumidor", nivel:"intermediário", title:"Propaganda enganosa em curso online",
+    desc:"Uma empresa de cursos vendeu um curso de idiomas prometendo 'fluência garantida em 6 meses' com selo de 'aprovado por linguistas'. Um consumidor que não atingiu fluência processa pedindo devolução e danos morais, alegando publicidade enganosa. A empresa alega que resultado individual depende de dedicação do aluno.",
+    sides:[{id:"consumidor",label:"Representar o Consumidor"},{id:"empresa",label:"Defender a Empresa"}] },
+  { id:"consumidor-2", area:"consumidor", nivel:"iniciante", title:"Cobrança indevida recorrente em fatura de cartão",
+    desc:"Um consumidor identificou, ao longo de seis meses, cobranças de uma assinatura que nunca contratou em sua fatura de cartão de crédito. A operadora do cartão alega que a responsabilidade é do lojista que processou a cobrança, não dela. O consumidor pede estorno em dobro e indenização por dano moral.",
+    sides:[{id:"consumidor",label:"Representar o Consumidor"},{id:"operadora",label:"Defender a Operadora do Cartão"}] },
+  { id:"consumidor-3", area:"consumidor", nivel:"intermediário", title:"Produto com defeito de fabricação e recall tardio",
+    desc:"Um eletrodoméstico pegou fogo por defeito de fabricação já conhecido pela fabricante, que só anunciou o recall dois meses depois do incidente do consumidor. A fabricante alega que já estava em processo interno de apuração. O consumidor pede indenização por danos materiais no imóvel e dano moral pelo risco à sua segurança.",
+    sides:[{id:"consumidor",label:"Representar o Consumidor"},{id:"fabricante",label:"Defender a Fabricante"}] },
+  { id:"consumidor-4", area:"consumidor", nivel:"iniciante", title:"Cancelamento de voo sem assistência material",
+    desc:"Uma companhia aérea cancelou um voo por reorganização de malha, sem justificativa de força maior, deixando os passageiros sem hospedagem ou alimentação por 14 horas. A companhia alega ter oferecido reacomodação em voo alternativo, o que já cumpriria sua obrigação. Os passageiros pedem indenização por dano moral e material.",
+    sides:[{id:"passageiro",label:"Representar o Passageiro"},{id:"companhia",label:"Defender a Companhia Aérea"}] },
+  { id:"consumidor-5", area:"consumidor", nivel:"avancado", title:"Venda casada de seguro em financiamento de veículo",
+    desc:"Um consumidor alega que só conseguiu aprovação do financiamento do carro condicionada à contratação de um seguro específico oferecido pela própria financeira, configurando venda casada. A financeira alega que o seguro foi oferecido, não imposto, e que o consumidor assinou voluntariamente todos os termos.",
+    sides:[{id:"consumidor",label:"Representar o Consumidor"},{id:"financeira",label:"Defender a Financeira"}] },
+
+  // ---- CONSTITUCIONAL ----
+  { id:"constitucional-1", area:"constitucional", nivel:"avancado", title:"Lei municipal que restringe manifestações em praça pública",
+    desc:"Um município aprovou lei exigindo autorização prévia de 15 dias úteis para qualquer manifestação em praças públicas, sob justificativa de organização do trânsito e segurança. Um coletivo social questiona a lei alegando violação ao direito fundamental de reunião. O município alega poder de polícia e interesse público.",
+    sides:[{id:"coletivo",label:"Representar o Coletivo"},{id:"municipio",label:"Defender o Município"}] },
+  { id:"constitucional-2", area:"constitucional", nivel:"intermediário", title:"Cotas raciais em concurso público estadual",
+    desc:"Um estado instituiu reserva de 20% das vagas em concurso público para candidatos negros, com comissão de heteroidentificação. Um candidato não cotista, reprovado por poucas colocações, questiona a constitucionalidade da política. O estado defende a política como medida de ação afirmativa compatível com a igualdade material.",
+    sides:[{id:"candidato",label:"Representar o Candidato Não Cotista"},{id:"estado",label:"Defender o Estado"}] },
+  { id:"constitucional-3", area:"constitucional", nivel:"intermediário", title:"Liberdade religiosa e dispensa de trabalho em sábado",
+    desc:"Um candidato aprovado em concurso público, de religião que guarda o sábado, pede dispensa de comparecimento em prova e posse marcadas nesse dia, com base na liberdade de crença. A banca organizadora alega isonomia entre todos os candidatos e ausência de previsão no edital para tal exceção.",
+    sides:[{id:"candidato",label:"Representar o Candidato"},{id:"banca",label:"Defender a Banca Organizadora"}] },
+  { id:"constitucional-4", area:"constitucional", nivel:"avancado", title:"Vaquejada: manifestação cultural vs. proteção animal",
+    desc:"Uma lei estadual regulamenta e autoriza a prática da vaquejada como manifestação cultural protegida constitucionalmente. Uma entidade de proteção animal questiona a lei alegando crueldade contra os animais, vedada pela Constituição. Defensores da prática alegam patrimônio cultural imaterial e tradição regional legítima.",
+    sides:[{id:"entidade",label:"Representar a Entidade de Proteção Animal"},{id:"estado",label:"Defender a Lei Estadual"}] },
+  { id:"constitucional-5", area:"constitucional", nivel:"avancado", title:"Direito de greve de servidores de segurança pública",
+    desc:"Policiais civis de um estado entraram em greve por reajuste salarial, paralisando parcialmente os serviços. O governo estadual alega que greve em serviço essencial de segurança pública é vedada pela Constituição e pede a ilegalidade do movimento. O sindicato defende o direito de greve como garantia fundamental, mesmo para essa categoria.",
+    sides:[{id:"sindicato",label:"Representar o Sindicato"},{id:"governo",label:"Defender o Governo Estadual"}] },
+];
+
+const AREAS = [
+  { id: "civil", label: "Civil" },
+  { id: "trabalho", label: "Trabalho" },
+  { id: "penal", label: "Penal" },
+  { id: "consumidor", label: "Consumidor" },
+  { id: "constitucional", label: "Constitucional" }
+];
+
+// Questões autorais, no estilo e formato da prova da OAB — não são questões oficiais da FGV.
+const QUESTOES_SIMULADO = [
+  { id:"q-civil-1", area:"civil", nivel:"intermediario",
+    enunciado:"Mário vendeu a José um automóvel usado, informando verbalmente que o veículo nunca havia sofrido acidente. Três meses após a entrega, José descobriu, por meio de perícia, que o carro havia sofrido colisão grave anos antes, com dano estrutural oculto não perceptível em vistoria comum. José deseja desfazer o negócio. Assinale a alternativa correta.",
+    alternativas:[
+      {letra:"A", texto:"José não tem direito algum, pois comprou o veículo usado por sua conta e risco."},
+      {letra:"B", texto:"José pode pleitear a redibição do contrato ou abatimento no preço, por se tratar de vício redibitório oculto."},
+      {letra:"C", texto:"José só teria direito à ação se o vício fosse aparente no momento da entrega."},
+      {letra:"D", texto:"José deve necessariamente manter o contrato e buscar apenas indenização por danos morais."}
+    ], correta:"B" },
+
+  { id:"q-civil-2", area:"civil", nivel:"avancado",
+    enunciado:"Camila, de 16 anos, emancipada voluntariamente por seus pais mediante escritura pública, celebrou contrato de compra e venda de um imóvel. Passado um ano, os pais de Camila pretendem anular o negócio alegando a menoridade da filha à época da celebração. Assinale a alternativa correta.",
+    alternativas:[
+      {letra:"A", texto:"O negócio é anulável, pois a emancipação voluntária não cessa a incapacidade para atos de disposição patrimonial relevante."},
+      {letra:"B", texto:"O negócio é nulo de pleno direito, por ausência de assistência dos pais no ato."},
+      {letra:"C", texto:"O negócio é plenamente válido, pois a emancipação voluntária cessa a menoridade para todos os efeitos civis, inclusive patrimoniais."},
+      {letra:"D", texto:"O negócio depende de homologação judicial posterior para produzir efeitos."}
+    ], correta:"C" },
+
+  { id:"q-trabalho-1", area:"trabalho", nivel:"intermediario",
+    enunciado:"Um empregado foi dispensado sem justa causa após 3 anos de empresa, tendo recebido aviso prévio trabalhado de 30 dias. Considerando as regras de aviso prévio proporcional previstas em lei, assinale a alternativa correta.",
+    alternativas:[
+      {letra:"A", texto:"O aviso prévio permanece fixo em 30 dias independentemente do tempo de serviço."},
+      {letra:"B", texto:"O empregado tem direito a 30 dias acrescidos de 3 dias por ano de serviço prestado à mesma empresa, até o limite de 90 dias."},
+      {letra:"C", texto:"O acréscimo de dias por tempo de serviço só se aplica ao aviso prévio indenizado, nunca ao trabalhado."},
+      {letra:"D", texto:"O aviso prévio proporcional deixou de existir com a reforma trabalhista de 2017."}
+    ], correta:"B" },
+
+  { id:"q-trabalho-2", area:"trabalho", nivel:"iniciante",
+    enunciado:"Uma empregada doméstica trabalha das 8h às 17h, de segunda a sexta, com 1 hora de intervalo para almoço. Em determinada semana, foi solicitada a permanecer até as 19h em três dias. Assinale a alternativa correta quanto às horas trabalhadas além da jornada.",
+    alternativas:[
+      {letra:"A", texto:"Trabalhadora doméstica não tem direito a horas extras, por força de sua natureza especial de vínculo."},
+      {letra:"B", texto:"As horas excedentes devem ser compensadas exclusivamente em banco de horas, sendo vedado o pagamento em pecúnia."},
+      {letra:"C", texto:"A empregada doméstica tem direito ao pagamento das horas extras com adicional mínimo de 50%, nos termos da Lei Complementar que regula a categoria."},
+      {letra:"D", texto:"O direito a horas extras só existe se previsto expressamente em contrato escrito."}
+    ], correta:"C" },
+
+  { id:"q-penal-1", area:"penal", nivel:"intermediario",
+    enunciado:"João, com intenção de matar Pedro, efetuou disparo de arma de fogo contra ele, atingindo-o de raspão. Pedro sobreviveu após atendimento médico. Durante a investigação, apurou-se que João desistiu de efetuar novos disparos, mesmo tendo condições de finalizar a execução, por arrependimento espontâneo. Assinale a alternativa correta.",
+    alternativas:[
+      {letra:"A", texto:"João responde por tentativa de homicídio, pois já havia iniciado a execução quando desistiu."},
+      {letra:"B", texto:"João responde apenas pelos atos já praticados, respondendo por lesão corporal, e não por tentativa de homicídio, em razão da desistência voluntária."},
+      {letra:"C", texto:"João não responde por crime algum, pois a desistência espontânea extingue toda a punibilidade do fato."},
+      {letra:"D", texto:"João responde por homicídio consumado, já que a intenção inicial era matar."}
+    ], correta:"B" },
+
+  { id:"q-penal-2", area:"penal", nivel:"avancado",
+    enunciado:"Marcos foi surpreendido por um assaltante armado que exigia sua carteira, sob ameaça de disparo. Marcos, então, desarmou o assaltante em luta corporal e, já com a posse da arma e o agressor desarmado e imobilizado no chão, efetuou um disparo fatal contra ele. Assinale a alternativa correta quanto à conduta de Marcos.",
+    alternativas:[
+      {letra:"A", texto:"Marcos agiu em legítima defesa durante toda a sequência de atos, pois a agressão inicial autoriza qualquer reação posterior."},
+      {letra:"B", texto:"Marcos agiu em legítima defesa até desarmar o agressor; o disparo posterior, com a agressão já neutralizada, configura excesso, afastando a excludente para esse ato."},
+      {letra:"C", texto:"Marcos está isento de pena em qualquer hipótese, por ter sido vítima inicial da ação."},
+      {letra:"D", texto:"A conduta de Marcos configura estado de necessidade, e não legítima defesa, do início ao fim."}
+    ], correta:"B" },
+
+  { id:"q-consumidor-1", area:"consumidor", nivel:"iniciante",
+    enunciado:"Um consumidor adquiriu uma geladeira nova que, dois meses após a compra, apresentou defeito no motor, impedindo seu funcionamento. Ele procurou a loja pedindo a troca imediata do produto. Considerando as regras do Código de Defesa do Consumidor sobre vício do produto, assinale a alternativa correta.",
+    alternativas:[
+      {letra:"A", texto:"O consumidor deve exigir a troca imediata, sendo vedado ao fornecedor tentar reparar o defeito."},
+      {letra:"B", texto:"O fornecedor tem o direito de, primeiro, tentar sanar o vício no prazo legal de até 30 dias, e só depois disso o consumidor pode exigir substituição, restituição do valor ou abatimento do preço."},
+      {letra:"C", texto:"O consumidor perdeu o direito de reclamar, pois o prazo decadencial de produtos duráveis é de apenas 30 dias após a compra."},
+      {letra:"D", texto:"Apenas o fabricante, nunca a loja que vendeu o produto, pode ser acionado nesse caso."}
+    ], correta:"B" },
+
+  { id:"q-consumidor-2", area:"consumidor", nivel:"intermediario",
+    enunciado:"Uma empresa de telefonia veiculou anúncio publicitário prometendo 'internet ilimitada sem qualquer redução de velocidade', quando, na prática, a velocidade é reduzida drasticamente após determinado consumo de dados, informação que não constava do anúncio. Assinale a alternativa correta.",
+    alternativas:[
+      {letra:"A", texto:"Não há infração, pois a limitação consta do contrato assinado pelo consumidor, ainda que ausente da publicidade."},
+      {letra:"B", texto:"Trata-se de publicidade enganosa por omissão, que induz o consumidor a erro sobre característica essencial do serviço, sendo vedada pelo CDC independentemente do que conste no contrato."},
+      {letra:"C", texto:"A publicidade é lícita, pois toda publicidade tem natureza de exagero admitido, conhecido como 'puffing'."},
+      {letra:"D", texto:"Somente have infração se o consumidor comprovar que efetivamente sofreu prejuízo financeiro direto."}
+    ], correta:"B" },
+
+  { id:"q-constitucional-1", area:"constitucional", nivel:"intermediario",
+    enunciado:"Um cidadão deseja obter, junto a entidade governamental, informações e esclarecimentos sobre dados pessoais seus constantes em registros ou bancos de dados, bem como retificar tais dados. Assinale a alternativa que indica o remédio constitucional cabível.",
+    alternativas:[
+      {letra:"A", texto:"Mandado de segurança, cabível sempre que houver ato de autoridade pública."},
+      {letra:"B", texto:"Habeas data, remédio constitucional específico para assegurar o conhecimento e a retificação de dados pessoais em registros de entidades governamentais ou de caráter público."},
+      {letra:"C", texto:"Habeas corpus, por se tratar de proteção à liberdade individual."},
+      {letra:"D", texto:"Ação popular, cabível para qualquer cidadão questionar atos lesivos ao patrimônio público."}
+    ], correta:"B" },
+
+  { id:"q-constitucional-2", area:"constitucional", nivel:"avancado",
+    enunciado:"Uma lei estadual, editada em contrariedade a dispositivo expresso da Constituição Federal, está produzindo efeitos há dois anos. Um partido político com representação no Congresso Nacional pretende questionar a constitucionalidade dessa lei diretamente perante o Supremo Tribunal Federal, com efeitos para todos. Assinale a alternativa correta quanto à via adequada.",
+    alternativas:[
+      {letra:"A", texto:"Ação Direta de Inconstitucionalidade (ADI), instrumento de controle concentrado que permite ao partido político, como legitimado, questionar a lei estadual diretamente no STF."},
+      {letra:"B", texto:"Recurso extraordinário, único meio cabível para levar a questão ao STF."},
+      {letra:"C", texto:"Mandado de injunção, por se tratar de omissão legislativa."},
+      {letra:"D", texto:"Ação civil pública, de competência exclusiva do Ministério Público, sendo vedada a partidos políticos."}
+    ], correta:"A" }
+];
+
+const $ = (id) => document.getElementById(id);
+
+/* ---------------- SUPABASE ---------------- */
+const SUPABASE_URL = "https://arfccgrxdrqvwhzttztx.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFyZmNjZ3J4ZHJxdndoenR0enR4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU1MDcxNjMsImV4cCI6MjEwMTA4MzE2M30.7MtSX6ldiv9n0HmmEG-nlQsi-i3RAKeBiFg4g36HHGE";
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+let currentUser = null;
+
+let authMode = "login"; // "login" | "signup"
+$("toggle-login").onclick = () => {
+  authMode = "login";
+  $("toggle-login").classList.add("active");
+  $("toggle-signup").classList.remove("active");
+  $("auth-title").textContent = "Entrar";
+  $("auth-submit").textContent = "Entrar";
+};
+$("toggle-signup").onclick = () => {
+  authMode = "signup";
+  $("toggle-signup").classList.add("active");
+  $("toggle-login").classList.remove("active");
+  $("auth-title").textContent = "Criar conta";
+  $("auth-submit").textContent = "Criar conta";
+};
+
+$("auth-submit").onclick = async () => {
+  const email = $("auth-email").value.trim();
+  const password = $("auth-password").value;
+  $("auth-error").classList.add("hidden");
+  if (!email || password.length < 6) {
+    $("auth-error").textContent = "Preencha email e uma senha com pelo menos 6 caracteres.";
+    $("auth-error").classList.remove("hidden");
+    return;
+  }
+  $("auth-submit").disabled = true;
+  $("auth-loading").classList.remove("hidden");
+  try {
+    let result;
+    if (authMode === "signup") {
+      result = await sb.auth.signUp({ email, password });
+    } else {
+      result = await sb.auth.signInWithPassword({ email, password });
+    }
+    if (result.error) throw result.error;
+    if (authMode === "signup" && !result.data.session) {
+      $("auth-error").textContent = "Conta criada. Verifique seu email para confirmar antes de entrar.";
+      $("auth-error").classList.remove("hidden");
+      return;
+    }
+    onAuthed(result.data.session.user);
+  } catch (err) {
+    $("auth-error").textContent = "Erro: " + err.message;
+    $("auth-error").classList.remove("hidden");
+  } finally {
+    $("auth-submit").disabled = false;
+    $("auth-loading").classList.add("hidden");
+  }
+};
+
+$("logout-btn").onclick = async () => {
+  await sb.auth.signOut();
+  location.reload();
+};
+
+function onAuthed(user) {
+  currentUser = user;
+  $("user-email").textContent = user.email;
+  $("auth-screen").classList.add("hidden");
+  $("app-root").classList.remove("hidden");
+}
+
+(async () => {
+  const { data } = await sb.auth.getSession();
+  if (data.session) onAuthed(data.session.user);
+})();
+
+/* ---------------- TAB NAVIGATION ---------------- */
+document.querySelectorAll(".tab-btn").forEach(btn => {
+  btn.onclick = () => {
+    document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+    document.querySelectorAll(".tab-panel").forEach(p => p.classList.add("hidden"));
+    btn.classList.add("active");
+    $("tab-" + btn.dataset.tab).classList.remove("hidden");
+    if (btn.dataset.tab === "progresso") loadProgresso();
+  };
+});
+
+async function callClaude(systemPrompt, messages, maxTokens) {
+  const response = await fetch("/api/claude", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      system: systemPrompt,
+      messages: messages,
+      max_tokens: maxTokens || 1000
+    })
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || "Falha na chamada da API (" + response.status + ")");
+  return data.text || "";
+}
+
+/* =========================================================
+   TAB 1: DEBATE
+   ========================================================= */
+let state = { selectedCase: null, ownCaseText: "", area: null, side: null, level: null, transcript: [] };
+
+function renderAreas() {
+  const row = $("area-row");
+  row.innerHTML = "";
+  AREAS.forEach(a => {
+    const btn = document.createElement("button");
+    btn.className = "pill";
+    btn.textContent = a.label;
+    btn.onclick = () => {
+      state.area = a.id;
+      [...row.children].forEach(c => c.classList.remove("active"));
+      btn.classList.add("active");
+      renderCases();
+      checkReady();
+    };
+    row.appendChild(btn);
+  });
+}
+
+function renderCases() {
+  const list = $("case-list");
+  list.innerHTML = "";
+  const filtered = state.area ? CASES.filter(c => c.area === state.area) : [];
+  if (filtered.length === 0) {
+    list.innerHTML = '<div style="font-family:\'Helvetica Neue\',Arial,sans-serif; font-size:12px; color:var(--parchment-dim);">Selecione uma área para ver os casos disponíveis.</div>';
+    return;
+  }
+  filtered.forEach(c => {
+    const card = document.createElement("div");
+    card.className = "case-card";
+    card.innerHTML = `<div class="case-title">${c.title}</div><div class="case-meta">${c.nivel} · ${c.sides.map(s=>s.label).join(" · ")}</div><div class="case-desc">${c.desc}</div>`;
+    card.onclick = () => {
+      state.selectedCase = c;
+      state.ownCaseText = "";
+      $("own-case").value = "";
+      [...list.children].forEach(x => x.classList.remove("active"));
+      card.classList.add("active");
+      renderSides();
+      checkReady();
+    };
+    list.appendChild(card);
+  });
+}
+
+function renderSides() {
+  const row = $("side-row");
+  row.innerHTML = "";
+  const sides = state.selectedCase ? state.selectedCase.sides : [{id:"lado_a", label:"Lado A"},{id:"lado_b", label:"Lado B"}];
+  sides.forEach(s => {
+    const btn = document.createElement("button");
+    btn.className = "pill";
+    btn.textContent = s.label;
+    btn.onclick = () => {
+      state.side = s;
+      [...row.children].forEach(c => c.classList.remove("active"));
+      btn.classList.add("active");
+      checkReady();
+    };
+    row.appendChild(btn);
+  });
+}
+
+$("own-case").addEventListener("input", (e) => {
+  state.ownCaseText = e.target.value;
+  if (e.target.value.trim().length > 10) {
+    state.selectedCase = null;
+    [...$("case-list").children].forEach(x => x.classList.remove("active"));
+    renderSides();
+  }
+  checkReady();
+});
+
+$("level-row").querySelectorAll(".pill").forEach(btn => {
+  btn.onclick = () => {
+    state.level = btn.dataset.val;
+    [...btn.parentElement.children].forEach(c => c.classList.remove("active"));
+    btn.classList.add("active");
+    checkReady();
+  };
+});
+
+function checkReady() {
+  const hasCase = state.selectedCase || state.ownCaseText.trim().length > 10;
+  $("start-btn").disabled = !(hasCase && state.area && state.side && state.level);
+}
+
+renderAreas();
+renderCases();
+renderSides();
+
+function getCaseFacts() {
+  if (state.selectedCase) return state.selectedCase.desc;
+  return state.ownCaseText.trim();
+}
+
+function levelInstructions() {
+  if (state.level === "iniciante") return "Nível INICIANTE: cometa ocasionalmente pequenos erros de raciocínio jurídico ou use argumentos mais simples e diretos, como um adversário menos experiente faria. Ainda assim seja um adversário real.";
+  if (state.level === "avancado") return "Nível AVANÇADO: cite jurisprudência específica (pode ser plausível/ilustrativa, mas coerente), invoque princípios constitucionais relevantes, e não deixe nenhum argumento fraco do estudante passar sem ser explorado.";
+  return "Nível INTERMEDIÁRIO: use fundamentação jurídica sólida e argumentos bem estruturados, no nível esperado de um advogado competente, sem ser implacável.";
+}
+
+function buildSystemPrompt() {
+  return `Você é um advogado adversário em um debate jurídico simulado, treinando um estudante de Direito brasileiro.
+
+CASO: ${getCaseFacts()}
+ÁREA DO DIREITO: ${state.area}
+O ESTUDANTE está defendendo o lado: "${state.side.label}"
+VOCÊ representa o lado oposto no mesmo caso.
+
+${levelInstructions()}
+
+REGRAS OBRIGATÓRIAS:
+- Nunca revele que você é uma IA. Mantenha o papel de advogado adversário o tempo todo.
+- Seja um adversário real, firme, não condescendente. Contra-argumente de verdade, aponte falhas no raciocínio do estudante.
+- Respostas CONCISAS: no máximo 3 parágrafos curtos.
+- Use fundamentos jurídicos brasileiros (Código Civil, CLT, Código Penal, CDC, Constituição Federal, conforme a área) quando fizer sentido.
+- Responda diretamente ao argumento mais recente do estudante, como em um debate real de tréplica/réplica.`;
+}
+
+function renderTranscript() {
+  const t = $("transcript");
+  t.innerHTML = "";
+  state.transcript.forEach(m => {
+    const div = document.createElement("div");
+    div.className = "msg " + m.role;
+    div.innerHTML = `<div class="msg-label">${m.role === "student" ? "Você" : "Adversário"}</div>${m.text.replace(/\n/g,"<br>")}`;
+    t.appendChild(div);
+  });
+  t.scrollIntoView({ behavior: "smooth", block: "end" });
+}
+
+$("start-btn").onclick = () => {
+  $("setup-screen").classList.add("hidden");
+  $("debate-screen").classList.remove("hidden");
+  $("tag-student").textContent = state.side.label;
+  $("tag-adversary").textContent = "Adversário (" + state.level + ")";
+  renderTranscript();
+};
+
+$("send-btn").onclick = sendArgument;
+$("arg-input").addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendArgument(); }
+});
+
+async function sendArgument() {
+  const input = $("arg-input");
+  const text = input.value.trim();
+  if (!text) return;
+  $("debate-error").classList.add("hidden");
+  state.transcript.push({ role: "student", text });
+  renderTranscript();
+  input.value = "";
+  $("send-btn").disabled = true;
+  $("thinking").classList.remove("hidden");
+  try {
+    const apiMessages = state.transcript.map(m => ({ role: m.role === "student" ? "user" : "assistant", content: m.text }));
+    const reply = await callClaude(buildSystemPrompt(), apiMessages, 500);
+    state.transcript.push({ role: "adversary", text: reply });
+    renderTranscript();
+  } catch (err) {
+    $("debate-error").textContent = "Erro: " + err.message;
+    $("debate-error").classList.remove("hidden");
+    state.transcript.pop();
+    renderTranscript();
+  } finally {
+    $("thinking").classList.add("hidden");
+    $("send-btn").disabled = false;
+  }
+}
+
+$("end-btn").onclick = async () => {
+  $("debate-screen").classList.add("hidden");
+  $("feedback-screen").classList.remove("hidden");
+  $("feedback-loading").classList.remove("hidden");
+  $("feedback-content").classList.add("hidden");
+
+  const transcriptText = state.transcript.map(m => (m.role === "student" ? "ESTUDANTE: " : "ADVERSÁRIO: ") + m.text).join("\n\n");
+
+  const feedbackSystem = `Você é um avaliador de debates jurídicos para estudantes de Direito brasileiro. Analise a transcrição de um debate e retorne APENAS um objeto JSON válido, sem markdown, sem crases, sem texto antes ou depois, no seguinte formato exato:
+
+{
+  "nota_solidez": <número de 0 a 10>,
+  "nota_fundamentos": <número de 0 a 10>,
+  "nota_replica": <número de 0 a 10>,
+  "pontos_fortes": ["ponto 1", "ponto 2", "ponto 3"],
+  "pontos_melhorar": ["ponto 1 com explicação do porquê está fraco", "ponto 2", "ponto 3"],
+  "sugestao_estudo": "um tema específico para estudar antes do próximo debate, com breve justificativa"
+}
+
+Caso: ${getCaseFacts()}
+Área: ${state.area}
+Lado do estudante: ${state.side.label}`;
+
+  try {
+    const raw = await callClaude(feedbackSystem, [{ role: "user", content: transcriptText }], 1200);
+    const clean = raw.replace(/```json|```/g, "").trim();
+    const fb = JSON.parse(clean);
+    $("score-1").textContent = fb.nota_solidez;
+    $("score-2").textContent = fb.nota_fundamentos;
+    $("score-3").textContent = fb.nota_replica;
+    $("strengths").innerHTML = fb.pontos_fortes.map(p => `<div class="point">${p}</div>`).join("");
+    $("weaknesses").innerHTML = fb.pontos_melhorar.map(p => `<div class="point">${p}</div>`).join("");
+    $("study-suggestion").textContent = fb.sugestao_estudo;
+    $("feedback-loading").classList.add("hidden");
+    $("feedback-content").classList.remove("hidden");
+
+    if (currentUser) {
+      await sb.from("debates").insert({
+        user_id: currentUser.id,
+        caso_id: null,
+        caso_customizado: state.selectedCase ? state.selectedCase.title : state.ownCaseText,
+        area: state.area,
+        lado_estudante: state.side.label,
+        nivel_adversario: state.level,
+        transcript: state.transcript,
+        nota_solidez: fb.nota_solidez,
+        nota_fundamentos: fb.nota_fundamentos,
+        nota_replica: fb.nota_replica,
+        pontos_fortes: fb.pontos_fortes,
+        pontos_melhorar: fb.pontos_melhorar,
+        sugestao_estudo: fb.sugestao_estudo,
+        encerrado_em: new Date().toISOString()
+      });
+    }
+  } catch (err) {
+    $("feedback-loading").textContent = "Erro ao gerar feedback: " + err.message;
+  }
+};
+
+$("restart-btn").onclick = () => location.reload();
+
+/* =========================================================
+   TAB 2: EXPLICADOR DE DOUTRINA
+   ========================================================= */
+let doutrinaLevel = "um calouro de Direito, com linguagem acessível mas já usando os termos técnicos corretos entre parênteses";
+
+$("doutrina-level-row").querySelectorAll(".pill").forEach(btn => {
+  btn.onclick = () => {
+    doutrinaLevel = btn.dataset.val;
+    [...btn.parentElement.children].forEach(c => c.classList.remove("active"));
+    btn.classList.add("active");
+  };
+});
+
+$("doutrina-btn").onclick = async () => {
+  const question = $("doutrina-input").value.trim();
+  $("doutrina-error").classList.add("hidden");
+  if (!question) {
+    $("doutrina-error").textContent = "Digite um conceito ou dúvida antes de pedir a explicação.";
+    $("doutrina-error").classList.remove("hidden");
+    return;
+  }
+  $("doutrina-btn").disabled = true;
+  $("doutrina-loading").classList.remove("hidden");
+  $("doutrina-result").classList.add("hidden");
+
+  const system = `Você é um professor de Direito brasileiro especialista em explicar doutrina jurídica de forma simples, sem juridiquês desnecessário.
+Explique o conceito pedido pelo estudante como se ele tivesse ${doutrinaLevel}.
+Use exemplos concretos do cotidiano brasileiro sempre que possível.
+Estruture a resposta em: (1) a ideia central em 1-2 frases simples, (2) um exemplo prático, (3) os pontos que costumam confundir ou cair em prova.
+Seja claro e direto, sem enrolação, mas completo o suficiente para o estudante realmente entender o conceito.`;
+
+  try {
+    const answer = await callClaude(system, [{ role: "user", content: question }], 900);
+    $("doutrina-answer").textContent = answer;
+    $("doutrina-result").classList.remove("hidden");
+  } catch (err) {
+    $("doutrina-error").textContent = "Erro: " + err.message;
+    $("doutrina-error").classList.remove("hidden");
+  } finally {
+    $("doutrina-btn").disabled = false;
+    $("doutrina-loading").classList.add("hidden");
+  }
+};
+
+/* =========================================================
+   TAB 3: CORRETOR DE PEÇAS
+   ========================================================= */
+let corretorState = { selectedCase: null, ownCaseText: "", tipoPeca: null };
+
+function renderCorretorCases() {
+  const list = $("corretor-case-list");
+  list.innerHTML = "";
+  CASES.forEach(c => {
+    const card = document.createElement("div");
+    card.className = "case-card";
+    card.innerHTML = `<div class="case-title">${c.title}</div><div class="case-meta">${AREAS.find(a=>a.id===c.area).label} · ${c.nivel}</div><div class="case-desc">${c.desc}</div>`;
+    card.onclick = () => {
+      corretorState.selectedCase = c;
+      corretorState.ownCaseText = "";
+      $("corretor-own-case").value = "";
+      [...list.children].forEach(x => x.classList.remove("active"));
+      card.classList.add("active");
+      checkCorretorReady();
+    };
+    list.appendChild(card);
+  });
+}
+renderCorretorCases();
+
+$("corretor-own-case").addEventListener("input", (e) => {
+  corretorState.ownCaseText = e.target.value;
+  if (e.target.value.trim().length > 10) {
+    corretorState.selectedCase = null;
+    [...$("corretor-case-list").children].forEach(x => x.classList.remove("active"));
+  }
+  checkCorretorReady();
+});
+
+$("peca-tipo-row").querySelectorAll(".pill").forEach(btn => {
+  btn.onclick = () => {
+    corretorState.tipoPeca = btn.dataset.val;
+    [...btn.parentElement.children].forEach(c => c.classList.remove("active"));
+    btn.classList.add("active");
+    checkCorretorReady();
+  };
+});
+
+$("peca-input").addEventListener("input", checkCorretorReady);
+
+function checkCorretorReady() {
+  const hasCase = corretorState.selectedCase || corretorState.ownCaseText.trim().length > 10;
+  const hasPeca = $("peca-input").value.trim().length > 30;
+  $("corretor-btn").disabled = !(hasCase && corretorState.tipoPeca && hasPeca);
+}
+
+$("corretor-btn").onclick = async () => {
+  const caseFacts = corretorState.selectedCase ? corretorState.selectedCase.desc : corretorState.ownCaseText.trim();
+  const peca = $("peca-input").value.trim();
+  $("corretor-error").classList.add("hidden");
+  $("corretor-btn").disabled = true;
+  $("corretor-loading").classList.remove("hidden");
+  $("corretor-result").classList.add("hidden");
+
+  const system = `Você é um corretor experiente de peças jurídicas, treinando estudantes de Direito brasileiro para a prova prático-profissional da OAB.
+
+CASO HIPOTÉTICO: ${caseFacts}
+TIPO DE PEÇA ESPERADA: ${corretorState.tipoPeca}
+
+Analise a peça escrita pelo estudante e retorne APENAS um objeto JSON válido, sem markdown, sem crases, sem texto antes ou depois, no formato exato:
+
+{
+  "erros": ["erro 1 identificado na peça", "erro 2", "erro 3"],
+  "faltando": ["elemento essencial que falta na peça 1", "elemento 2"],
+  "melhorar": ["sugestão concreta de melhoria 1", "sugestão 2", "sugestão 3"],
+  "nota_geral": "uma nota de 0 a 10 com uma frase curta justificando"
+}
+
+Avalie estrutura formal da peça (endereçamento, qualificação das partes, fundamentação, pedidos), correção técnica dos fundamentos jurídicos citados, e clareza da argumentação.`;
+
+  try {
+    const raw = await callClaude(system, [{ role: "user", content: peca }], 1200);
+    const clean = raw.replace(/```json|```/g, "").trim();
+    const fb = JSON.parse(clean);
+    $("corretor-erros").innerHTML = fb.erros.map(p => `<div class="point">${p}</div>`).join("");
+    $("corretor-faltando").innerHTML = fb.faltando.map(p => `<div class="point">${p}</div>`).join("");
+    $("corretor-melhorar").innerHTML = fb.melhorar.map(p => `<div class="point">${p}</div>`).join("");
+    $("corretor-nota").textContent = fb.nota_geral;
+    $("corretor-result").classList.remove("hidden");
+
+    if (currentUser) {
+      await sb.from("pecas_corrigidas").insert({
+        user_id: currentUser.id,
+        caso_id: null,
+        caso_customizado: corretorState.selectedCase ? corretorState.selectedCase.title : corretorState.ownCaseText,
+        tipo_peca: corretorState.tipoPeca,
+        texto_peca: peca,
+        erros: fb.erros,
+        faltando: fb.faltando,
+        melhorar: fb.melhorar,
+        nota_geral: fb.nota_geral
+      });
+    }
+  } catch (err) {
+    $("corretor-error").textContent = "Erro: " + err.message;
+    $("corretor-error").classList.remove("hidden");
+  } finally {
+    $("corretor-btn").disabled = false;
+    $("corretor-loading").classList.add("hidden");
+  }
+};
+
+/* =========================================================
+   TAB 4: PROGRESSO
+   ========================================================= */
+async function loadProgresso() {
+  if (!currentUser) return;
+  $("progresso-loading").classList.remove("hidden");
+  $("progresso-content").classList.add("hidden");
+
+  const { data: debates, error } = await sb
+    .from("debates")
+    .select("*")
+    .eq("user_id", currentUser.id)
+    .order("iniciado_em", { ascending: false });
+
+  $("progresso-loading").classList.add("hidden");
+  $("progresso-content").classList.remove("hidden");
+
+  if (error) {
+    $("progresso-areas").innerHTML = "";
+    $("progresso-historico").innerHTML = `<div class="error">Erro ao carregar: ${error.message}</div>`;
+    return;
+  }
+
+  if (!debates || debates.length === 0) {
+    $("progresso-areas").innerHTML = "";
+    $("progresso-historico").innerHTML = "";
+    $("progresso-empty").classList.remove("hidden");
+    return;
+  }
+  $("progresso-empty").classList.add("hidden");
+
+  // Média por área
+  const byArea = {};
+  debates.forEach(d => {
+    if (d.nota_solidez == null) return;
+    if (!byArea[d.area]) byArea[d.area] = [];
+    byArea[d.area].push(Number(d.nota_solidez));
+  });
+  $("progresso-areas").innerHTML = Object.keys(byArea).map(area => {
+    const avg = byArea[area].reduce((a,b) => a+b, 0) / byArea[area].length;
+    const pct = (avg / 10) * 100;
+    return `<div class="progress-row">
+      <div class="area-name">${area}</div>
+      <div class="progress-bar-track"><div class="progress-bar-fill" style="width:${pct}%;"></div></div>
+      <div class="progress-avg">${avg.toFixed(1)}</div>
+    </div>`;
+  }).join("");
+
+  // Histórico recente (últimos 10)
+  $("progresso-historico").innerHTML = debates.slice(0, 10).map(d => {
+    const data = new Date(d.iniciado_em).toLocaleDateString("pt-BR");
+    const titulo = d.caso_customizado || "Caso da biblioteca";
+    return `<div class="history-item">
+      <div class="h-title">${titulo}</div>
+      <div class="h-meta">${data} · ${d.area} · ${d.lado_estudante} · adversário ${d.nivel_adversario}</div>
+      <div class="h-scores">Solidez ${d.nota_solidez ?? "–"} · Fundamentos ${d.nota_fundamentos ?? "–"} · Réplica ${d.nota_replica ?? "–"}</div>
+    </div>`;
+  }).join("");
+}
+
+/* =========================================================
+   TAB 5: SIMULADO OAB
+   ========================================================= */
+let simuladoState = { area: null, questao: null, escolhida: null };
+
+function renderSimuladoAreas() {
+  const row = $("simulado-area-row");
+  row.innerHTML = "";
+  AREAS.forEach(a => {
+    const btn = document.createElement("button");
+    btn.className = "pill";
+    btn.textContent = a.label;
+    btn.onclick = () => {
+      simuladoState.area = a.id;
+      [...row.children].forEach(c => c.classList.remove("active"));
+      btn.classList.add("active");
+      $("simulado-start-btn").disabled = false;
+    };
+    row.appendChild(btn);
+  });
+}
+renderSimuladoAreas();
+
+$("simulado-start-btn").onclick = sortearQuestao;
+$("simulado-proxima-btn").onclick = () => {
+  $("simulado-resultado").classList.add("hidden");
+  $("simulado-setup").classList.remove("hidden");
+};
+
+function sortearQuestao() {
+  const pool = QUESTOES_SIMULADO.filter(q => q.area === simuladoState.area);
+  if (pool.length === 0) return;
+  simuladoState.questao = pool[Math.floor(Math.random() * pool.length)];
+  simuladoState.escolhida = null;
+
+  $("simulado-setup").classList.add("hidden");
+  $("simulado-resultado").classList.add("hidden");
+  $("simulado-questao").classList.remove("hidden");
+
+  const q = simuladoState.questao;
+  $("simulado-q-meta").textContent = AREAS.find(a => a.id === q.area).label + " · nível " + q.nivel;
+  $("simulado-q-enunciado").textContent = q.enunciado;
+
+  const altBox = $("simulado-alternativas");
+  altBox.innerHTML = "";
+  q.alternativas.forEach(alt => {
+    const btn = document.createElement("button");
+    btn.className = "case-card";
+    btn.style.cursor = "pointer";
+    btn.innerHTML = `<strong>${alt.letra})</strong> ${alt.texto}`;
+    btn.onclick = () => {
+      simuladoState.escolhida = alt.letra;
+      [...altBox.children].forEach(c => c.classList.remove("active"));
+      btn.classList.add("active");
+      $("simulado-confirmar-btn").disabled = false;
+    };
+    altBox.appendChild(btn);
+  });
+  $("simulado-confirmar-btn").disabled = true;
+}
+
+$("simulado-confirmar-btn").onclick = async () => {
+  const q = simuladoState.questao;
+  const acertou = simuladoState.escolhida === q.correta;
+
+  $("simulado-questao").classList.add("hidden");
+  $("simulado-resultado").classList.remove("hidden");
+  $("simulado-resultado-label").textContent = acertou ? "Acertou" : "Errou";
+  $("simulado-resultado-titulo").textContent = acertou
+    ? "Resposta correta!"
+    : `Resposta certa: ${q.correta}`;
+  $("simulado-explicacao-loading").classList.remove("hidden");
+  $("simulado-explicacao-content").classList.add("hidden");
+  $("simulado-error").classList.add("hidden");
+
+  const system = `Você é um professor de Direito brasileiro especializado em preparação para a OAB. Explique de forma clara e direta o raciocínio jurídico por trás da resposta correta de uma questão de múltipla escolha, e por que cada alternativa errada está incorreta. Seja objetivo, cite fundamentos legais quando pertinente, sem enrolação.`;
+
+  const userMsg = `Questão (área: ${q.area}):
+${q.enunciado}
+
+Alternativas:
+${q.alternativas.map(a => a.letra + ") " + a.texto).join("\n")}
+
+Resposta correta: ${q.correta}
+Alternativa escolhida pelo estudante: ${simuladoState.escolhida}
+
+Explique por que a alternativa ${q.correta} está correta e, para cada uma das outras alternativas, explique brevemente por que está errada.`;
+
+  try {
+    const explicacao = await callClaude(system, [{ role: "user", content: userMsg }], 800);
+    $("simulado-explicacao").textContent = explicacao;
+    $("simulado-explicacao-loading").classList.add("hidden");
+    $("simulado-explicacao-content").classList.remove("hidden");
+
+    if (currentUser) {
+      await sb.from("simulado_respostas").insert({
+        user_id: currentUser.id,
+        questao_id: q.id,
+        area: q.area,
+        alternativa_escolhida: simuladoState.escolhida,
+        acertou: acertou
+      });
+    }
+  } catch (err) {
+    $("simulado-explicacao-loading").classList.add("hidden");
+    $("simulado-error").textContent = "Erro: " + err.message;
+    $("simulado-error").classList.remove("hidden");
+  }
+};
+
+/* =========================================================
+   TAB 6: FICHAMENTO DE ACÓRDÃOS
+   ========================================================= */
+let fichamentoFile = null;
+
+$("fichamento-file").addEventListener("change", (e) => {
+  fichamentoFile = e.target.files[0] || null;
+  $("fichamento-btn").disabled = !fichamentoFile;
+});
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result.split(",")[1]);
+    reader.onerror = () => reject(new Error("Falha ao ler o arquivo."));
+    reader.readAsDataURL(file);
+  });
+}
+
+$("fichamento-btn").onclick = async () => {
+  if (!fichamentoFile) return;
+  $("fichamento-error").classList.add("hidden");
+  $("fichamento-btn").disabled = true;
+  $("fichamento-loading").classList.remove("hidden");
+  $("fichamento-result").classList.add("hidden");
+
+  try {
+    const base64Data = await fileToBase64(fichamentoFile);
+
+    const system = `Você é um assistente jurídico especializado em fichamento de acórdãos para estudantes de Direito brasileiro que precisam preparar leitura de aula. Analise o PDF do acórdão enviado e retorne APENAS um objeto JSON válido, sem markdown, sem crases, sem texto antes ou depois, no formato exato:
+
+{
+  "ementa_resumida": "resumo claro e direto da ementa, em linguagem acessível para estudante",
+  "tese_juridica_central": "a tese jurídica central fixada pelo tribunal, explicada de forma direta",
+  "aplicacao_pratica": "como essa decisão se aplica na prática, com exemplo se fizer sentido"
+}`;
+
+    const messages = [{
+      role: "user",
+      content: [
+        { type: "document", source: { type: "base64", media_type: "application/pdf", data: base64Data } },
+        { type: "text", text: "Faça o fichamento deste acórdão." }
+      ]
+    }];
+
+    const raw = await callClaude(system, messages, 1200);
+    const clean = raw.replace(/```json|```/g, "").trim();
+    const fb = JSON.parse(clean);
+
+    $("fichamento-ementa").textContent = fb.ementa_resumida;
+    $("fichamento-tese").textContent = fb.tese_juridica_central;
+    $("fichamento-aplicacao").textContent = fb.aplicacao_pratica;
+    $("fichamento-loading").classList.add("hidden");
+    $("fichamento-result").classList.remove("hidden");
+
+    if (currentUser) {
+      await sb.from("fichamentos").insert({
+        user_id: currentUser.id,
+        nome_arquivo: fichamentoFile.name,
+        ementa_resumida: fb.ementa_resumida,
+        tese_juridica_central: fb.tese_juridica_central,
+        aplicacao_pratica: fb.aplicacao_pratica
+      });
+    }
+  } catch (err) {
+    $("fichamento-loading").classList.add("hidden");
+    $("fichamento-error").textContent = "Erro: " + err.message;
+    $("fichamento-error").classList.remove("hidden");
+  } finally {
+    $("fichamento-btn").disabled = false;
+  }
+};
+</script>
+</body>
+</html>
