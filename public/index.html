@@ -247,6 +247,7 @@
       <button class="tab-btn active" data-tab="debate">Debate</button>
       <button class="tab-btn" data-tab="explicador">Explicador</button>
       <button class="tab-btn" data-tab="corretor">Corretor</button>
+      <button class="tab-btn" data-tab="simulado">Simulado OAB</button>
       <button class="tab-btn" data-tab="progresso">Progresso</button>
     </div>
     <div class="topbar-user">
@@ -402,7 +403,48 @@
     </div>
   </div>
 
-  <!-- ======================= TAB: PROGRESSO ======================= -->
+  <!-- ======================= TAB: SIMULADO OAB ======================= -->
+  <div id="tab-simulado" class="tab-panel hidden">
+    <div class="docket" data-tag="QUESTÕES ESTILO OAB — AUTORAIS">
+      <div class="sub">Juri IA Estudante</div>
+      <h1>Simulado OAB</h1>
+    </div>
+
+    <div id="simulado-setup" class="setup-grid">
+      <div class="field">
+        <label>Escolha a área</label>
+        <div class="pill-row" id="simulado-area-row"></div>
+      </div>
+      <button class="cta" id="simulado-start-btn" disabled>Sortear questão</button>
+    </div>
+
+    <div id="simulado-questao" class="hidden">
+      <div class="docket" data-tag="QUESTÃO">
+        <div class="sub" id="simulado-q-meta"></div>
+        <div style="font-size:15px; line-height:1.6; margin-top:8px;" id="simulado-q-enunciado"></div>
+      </div>
+      <div class="setup-grid" id="simulado-alternativas"></div>
+      <button class="cta" id="simulado-confirmar-btn" disabled>Confirmar resposta</button>
+    </div>
+
+    <div id="simulado-resultado" class="hidden">
+      <div class="verdict-header">
+        <div class="label" id="simulado-resultado-label">Resultado</div>
+        <h1 id="simulado-resultado-titulo"></h1>
+      </div>
+      <div class="thinking" id="simulado-explicacao-loading">Preparando a explicação...</div>
+      <div id="simulado-explicacao-content" class="hidden">
+        <div class="section-block">
+          <h3>Por que essa é a resposta certa — e por que as outras erram</h3>
+          <div class="answer-box" id="simulado-explicacao"></div>
+        </div>
+        <button class="cta ghost" id="simulado-proxima-btn">Próxima questão</button>
+      </div>
+    </div>
+    <div class="error hidden" id="simulado-error"></div>
+  </div>
+
+
   <div id="tab-progresso" class="tab-panel hidden">
     <div class="docket" data-tag="EVOLUÇÃO">
       <div class="sub">Juri IA Estudante</div>
@@ -520,6 +562,99 @@ const AREAS = [
   { id: "penal", label: "Penal" },
   { id: "consumidor", label: "Consumidor" },
   { id: "constitucional", label: "Constitucional" }
+];
+
+// Questões autorais, no estilo e formato da prova da OAB — não são questões oficiais da FGV.
+const QUESTOES_SIMULADO = [
+  { id:"q-civil-1", area:"civil", nivel:"intermediario",
+    enunciado:"Mário vendeu a José um automóvel usado, informando verbalmente que o veículo nunca havia sofrido acidente. Três meses após a entrega, José descobriu, por meio de perícia, que o carro havia sofrido colisão grave anos antes, com dano estrutural oculto não perceptível em vistoria comum. José deseja desfazer o negócio. Assinale a alternativa correta.",
+    alternativas:[
+      {letra:"A", texto:"José não tem direito algum, pois comprou o veículo usado por sua conta e risco."},
+      {letra:"B", texto:"José pode pleitear a redibição do contrato ou abatimento no preço, por se tratar de vício redibitório oculto."},
+      {letra:"C", texto:"José só teria direito à ação se o vício fosse aparente no momento da entrega."},
+      {letra:"D", texto:"José deve necessariamente manter o contrato e buscar apenas indenização por danos morais."}
+    ], correta:"B" },
+
+  { id:"q-civil-2", area:"civil", nivel:"avancado",
+    enunciado:"Camila, de 16 anos, emancipada voluntariamente por seus pais mediante escritura pública, celebrou contrato de compra e venda de um imóvel. Passado um ano, os pais de Camila pretendem anular o negócio alegando a menoridade da filha à época da celebração. Assinale a alternativa correta.",
+    alternativas:[
+      {letra:"A", texto:"O negócio é anulável, pois a emancipação voluntária não cessa a incapacidade para atos de disposição patrimonial relevante."},
+      {letra:"B", texto:"O negócio é nulo de pleno direito, por ausência de assistência dos pais no ato."},
+      {letra:"C", texto:"O negócio é plenamente válido, pois a emancipação voluntária cessa a menoridade para todos os efeitos civis, inclusive patrimoniais."},
+      {letra:"D", texto:"O negócio depende de homologação judicial posterior para produzir efeitos."}
+    ], correta:"C" },
+
+  { id:"q-trabalho-1", area:"trabalho", nivel:"intermediario",
+    enunciado:"Um empregado foi dispensado sem justa causa após 3 anos de empresa, tendo recebido aviso prévio trabalhado de 30 dias. Considerando as regras de aviso prévio proporcional previstas em lei, assinale a alternativa correta.",
+    alternativas:[
+      {letra:"A", texto:"O aviso prévio permanece fixo em 30 dias independentemente do tempo de serviço."},
+      {letra:"B", texto:"O empregado tem direito a 30 dias acrescidos de 3 dias por ano de serviço prestado à mesma empresa, até o limite de 90 dias."},
+      {letra:"C", texto:"O acréscimo de dias por tempo de serviço só se aplica ao aviso prévio indenizado, nunca ao trabalhado."},
+      {letra:"D", texto:"O aviso prévio proporcional deixou de existir com a reforma trabalhista de 2017."}
+    ], correta:"B" },
+
+  { id:"q-trabalho-2", area:"trabalho", nivel:"iniciante",
+    enunciado:"Uma empregada doméstica trabalha das 8h às 17h, de segunda a sexta, com 1 hora de intervalo para almoço. Em determinada semana, foi solicitada a permanecer até as 19h em três dias. Assinale a alternativa correta quanto às horas trabalhadas além da jornada.",
+    alternativas:[
+      {letra:"A", texto:"Trabalhadora doméstica não tem direito a horas extras, por força de sua natureza especial de vínculo."},
+      {letra:"B", texto:"As horas excedentes devem ser compensadas exclusivamente em banco de horas, sendo vedado o pagamento em pecúnia."},
+      {letra:"C", texto:"A empregada doméstica tem direito ao pagamento das horas extras com adicional mínimo de 50%, nos termos da Lei Complementar que regula a categoria."},
+      {letra:"D", texto:"O direito a horas extras só existe se previsto expressamente em contrato escrito."}
+    ], correta:"C" },
+
+  { id:"q-penal-1", area:"penal", nivel:"intermediario",
+    enunciado:"João, com intenção de matar Pedro, efetuou disparo de arma de fogo contra ele, atingindo-o de raspão. Pedro sobreviveu após atendimento médico. Durante a investigação, apurou-se que João desistiu de efetuar novos disparos, mesmo tendo condições de finalizar a execução, por arrependimento espontâneo. Assinale a alternativa correta.",
+    alternativas:[
+      {letra:"A", texto:"João responde por tentativa de homicídio, pois já havia iniciado a execução quando desistiu."},
+      {letra:"B", texto:"João responde apenas pelos atos já praticados, respondendo por lesão corporal, e não por tentativa de homicídio, em razão da desistência voluntária."},
+      {letra:"C", texto:"João não responde por crime algum, pois a desistência espontânea extingue toda a punibilidade do fato."},
+      {letra:"D", texto:"João responde por homicídio consumado, já que a intenção inicial era matar."}
+    ], correta:"B" },
+
+  { id:"q-penal-2", area:"penal", nivel:"avancado",
+    enunciado:"Marcos foi surpreendido por um assaltante armado que exigia sua carteira, sob ameaça de disparo. Marcos, então, desarmou o assaltante em luta corporal e, já com a posse da arma e o agressor desarmado e imobilizado no chão, efetuou um disparo fatal contra ele. Assinale a alternativa correta quanto à conduta de Marcos.",
+    alternativas:[
+      {letra:"A", texto:"Marcos agiu em legítima defesa durante toda a sequência de atos, pois a agressão inicial autoriza qualquer reação posterior."},
+      {letra:"B", texto:"Marcos agiu em legítima defesa até desarmar o agressor; o disparo posterior, com a agressão já neutralizada, configura excesso, afastando a excludente para esse ato."},
+      {letra:"C", texto:"Marcos está isento de pena em qualquer hipótese, por ter sido vítima inicial da ação."},
+      {letra:"D", texto:"A conduta de Marcos configura estado de necessidade, e não legítima defesa, do início ao fim."}
+    ], correta:"B" },
+
+  { id:"q-consumidor-1", area:"consumidor", nivel:"iniciante",
+    enunciado:"Um consumidor adquiriu uma geladeira nova que, dois meses após a compra, apresentou defeito no motor, impedindo seu funcionamento. Ele procurou a loja pedindo a troca imediata do produto. Considerando as regras do Código de Defesa do Consumidor sobre vício do produto, assinale a alternativa correta.",
+    alternativas:[
+      {letra:"A", texto:"O consumidor deve exigir a troca imediata, sendo vedado ao fornecedor tentar reparar o defeito."},
+      {letra:"B", texto:"O fornecedor tem o direito de, primeiro, tentar sanar o vício no prazo legal de até 30 dias, e só depois disso o consumidor pode exigir substituição, restituição do valor ou abatimento do preço."},
+      {letra:"C", texto:"O consumidor perdeu o direito de reclamar, pois o prazo decadencial de produtos duráveis é de apenas 30 dias após a compra."},
+      {letra:"D", texto:"Apenas o fabricante, nunca a loja que vendeu o produto, pode ser acionado nesse caso."}
+    ], correta:"B" },
+
+  { id:"q-consumidor-2", area:"consumidor", nivel:"intermediario",
+    enunciado:"Uma empresa de telefonia veiculou anúncio publicitário prometendo 'internet ilimitada sem qualquer redução de velocidade', quando, na prática, a velocidade é reduzida drasticamente após determinado consumo de dados, informação que não constava do anúncio. Assinale a alternativa correta.",
+    alternativas:[
+      {letra:"A", texto:"Não há infração, pois a limitação consta do contrato assinado pelo consumidor, ainda que ausente da publicidade."},
+      {letra:"B", texto:"Trata-se de publicidade enganosa por omissão, que induz o consumidor a erro sobre característica essencial do serviço, sendo vedada pelo CDC independentemente do que conste no contrato."},
+      {letra:"C", texto:"A publicidade é lícita, pois toda publicidade tem natureza de exagero admitido, conhecido como 'puffing'."},
+      {letra:"D", texto:"Somente have infração se o consumidor comprovar que efetivamente sofreu prejuízo financeiro direto."}
+    ], correta:"B" },
+
+  { id:"q-constitucional-1", area:"constitucional", nivel:"intermediario",
+    enunciado:"Um cidadão deseja obter, junto a entidade governamental, informações e esclarecimentos sobre dados pessoais seus constantes em registros ou bancos de dados, bem como retificar tais dados. Assinale a alternativa que indica o remédio constitucional cabível.",
+    alternativas:[
+      {letra:"A", texto:"Mandado de segurança, cabível sempre que houver ato de autoridade pública."},
+      {letra:"B", texto:"Habeas data, remédio constitucional específico para assegurar o conhecimento e a retificação de dados pessoais em registros de entidades governamentais ou de caráter público."},
+      {letra:"C", texto:"Habeas corpus, por se tratar de proteção à liberdade individual."},
+      {letra:"D", texto:"Ação popular, cabível para qualquer cidadão questionar atos lesivos ao patrimônio público."}
+    ], correta:"B" },
+
+  { id:"q-constitucional-2", area:"constitucional", nivel:"avancado",
+    enunciado:"Uma lei estadual, editada em contrariedade a dispositivo expresso da Constituição Federal, está produzindo efeitos há dois anos. Um partido político com representação no Congresso Nacional pretende questionar a constitucionalidade dessa lei diretamente perante o Supremo Tribunal Federal, com efeitos para todos. Assinale a alternativa correta quanto à via adequada.",
+    alternativas:[
+      {letra:"A", texto:"Ação Direta de Inconstitucionalidade (ADI), instrumento de controle concentrado que permite ao partido político, como legitimado, questionar a lei estadual diretamente no STF."},
+      {letra:"B", texto:"Recurso extraordinário, único meio cabível para levar a questão ao STF."},
+      {letra:"C", texto:"Mandado de injunção, por se tratar de omissão legislativa."},
+      {letra:"D", texto:"Ação civil pública, de competência exclusiva do Ministério Público, sendo vedada a partidos políticos."}
+    ], correta:"A" }
 ];
 
 const $ = (id) => document.getElementById(id);
@@ -1068,6 +1203,116 @@ async function loadProgresso() {
     </div>`;
   }).join("");
 }
+
+/* =========================================================
+   TAB 5: SIMULADO OAB
+   ========================================================= */
+let simuladoState = { area: null, questao: null, escolhida: null };
+
+function renderSimuladoAreas() {
+  const row = $("simulado-area-row");
+  row.innerHTML = "";
+  AREAS.forEach(a => {
+    const btn = document.createElement("button");
+    btn.className = "pill";
+    btn.textContent = a.label;
+    btn.onclick = () => {
+      simuladoState.area = a.id;
+      [...row.children].forEach(c => c.classList.remove("active"));
+      btn.classList.add("active");
+      $("simulado-start-btn").disabled = false;
+    };
+    row.appendChild(btn);
+  });
+}
+renderSimuladoAreas();
+
+$("simulado-start-btn").onclick = sortearQuestao;
+$("simulado-proxima-btn").onclick = () => {
+  $("simulado-resultado").classList.add("hidden");
+  $("simulado-setup").classList.remove("hidden");
+};
+
+function sortearQuestao() {
+  const pool = QUESTOES_SIMULADO.filter(q => q.area === simuladoState.area);
+  if (pool.length === 0) return;
+  simuladoState.questao = pool[Math.floor(Math.random() * pool.length)];
+  simuladoState.escolhida = null;
+
+  $("simulado-setup").classList.add("hidden");
+  $("simulado-resultado").classList.add("hidden");
+  $("simulado-questao").classList.remove("hidden");
+
+  const q = simuladoState.questao;
+  $("simulado-q-meta").textContent = AREAS.find(a => a.id === q.area).label + " · nível " + q.nivel;
+  $("simulado-q-enunciado").textContent = q.enunciado;
+
+  const altBox = $("simulado-alternativas");
+  altBox.innerHTML = "";
+  q.alternativas.forEach(alt => {
+    const btn = document.createElement("button");
+    btn.className = "case-card";
+    btn.style.cursor = "pointer";
+    btn.innerHTML = `<strong>${alt.letra})</strong> ${alt.texto}`;
+    btn.onclick = () => {
+      simuladoState.escolhida = alt.letra;
+      [...altBox.children].forEach(c => c.classList.remove("active"));
+      btn.classList.add("active");
+      $("simulado-confirmar-btn").disabled = false;
+    };
+    altBox.appendChild(btn);
+  });
+  $("simulado-confirmar-btn").disabled = true;
+}
+
+$("simulado-confirmar-btn").onclick = async () => {
+  const q = simuladoState.questao;
+  const acertou = simuladoState.escolhida === q.correta;
+
+  $("simulado-questao").classList.add("hidden");
+  $("simulado-resultado").classList.remove("hidden");
+  $("simulado-resultado-label").textContent = acertou ? "Acertou" : "Errou";
+  $("simulado-resultado-titulo").textContent = acertou
+    ? "Resposta correta!"
+    : `Resposta certa: ${q.correta}`;
+  $("simulado-explicacao-loading").classList.remove("hidden");
+  $("simulado-explicacao-content").classList.add("hidden");
+  $("simulado-error").classList.add("hidden");
+
+  const system = `Você é um professor de Direito brasileiro especializado em preparação para a OAB. Explique de forma clara e direta o raciocínio jurídico por trás da resposta correta de uma questão de múltipla escolha, e por que cada alternativa errada está incorreta. Seja objetivo, cite fundamentos legais quando pertinente, sem enrolação.`;
+
+  const userMsg = `Questão (área: ${q.area}):
+${q.enunciado}
+
+Alternativas:
+${q.alternativas.map(a => a.letra + ") " + a.texto).join("\n")}
+
+Resposta correta: ${q.correta}
+Alternativa escolhida pelo estudante: ${simuladoState.escolhida}
+
+Explique por que a alternativa ${q.correta} está correta e, para cada uma das outras alternativas, explique brevemente por que está errada.`;
+
+  try {
+    const explicacao = await callClaude(system, [{ role: "user", content: userMsg }], 800);
+    $("simulado-explicacao").textContent = explicacao;
+    $("simulado-explicacao-loading").classList.add("hidden");
+    $("simulado-explicacao-content").classList.remove("hidden");
+
+    if (currentUser) {
+      await sb.from("simulado_respostas").insert({
+        user_id: currentUser.id,
+        questao_id: q.id,
+        area: q.area,
+        alternativa_escolhida: simuladoState.escolhida,
+        acertou: acertou
+      });
+    }
+  } catch (err) {
+    $("simulado-explicacao-loading").classList.add("hidden");
+    $("simulado-error").textContent = "Erro: " + err.message;
+    $("simulado-error").classList.remove("hidden");
+  }
+};
 </script>
 </body>
 </html>
