@@ -2,7 +2,7 @@ const express = require("express");
 const path = require("path");
 
 const app = express();
-app.use(express.json({ limit: "2mb" }));
+app.use(express.json({ limit: "15mb" }));
 app.use(express.static(path.join(__dirname, "public")));
 
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
