@@ -1,0 +1,15 @@
+{
+  "name": "juriai-estudante-backend",
+  "version": "1.0.0",
+  "description": "Backend proxy para o Juri IA Estudante — segura a chave da API Anthropic e serve o frontend",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}
