@@ -249,6 +249,7 @@
       <button class="tab-btn" data-tab="corretor">Corretor</button>
       <button class="tab-btn" data-tab="simulado">Simulado OAB</button>
       <button class="tab-btn" data-tab="fichamento">Fichamento</button>
+      <button class="tab-btn" data-tab="voz">Debate por Voz</button>
       <button class="tab-btn" data-tab="progresso">Progresso</button>
     </div>
     <div class="topbar-user">
@@ -467,6 +468,87 @@
         <div class="section-block"><h3>Ementa resumida</h3><div class="answer-box" id="fichamento-ementa"></div></div>
         <div class="section-block"><h3>Tese jurídica central</h3><div class="answer-box" id="fichamento-tese"></div></div>
         <div class="section-block"><h3>Aplicação prática</h3><div class="answer-box" id="fichamento-aplicacao"></div></div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ======================= TAB: DEBATE POR VOZ ======================= -->
+  <div id="tab-voz" class="tab-panel hidden">
+
+    <div id="voz-setup">
+      <div class="docket" data-tag="SUSTENTAÇÃO ORAL SIMULADA">
+        <div class="sub">Juri IA Estudante</div>
+        <h1>Debate por Voz</h1>
+      </div>
+      <div class="setup-grid">
+        <div class="field">
+          <label>1. Área do direito</label>
+          <div class="pill-row" id="voz-area-row"></div>
+        </div>
+        <div class="field">
+          <label>2. Escolha o caso</label>
+          <div class="case-scroll" id="voz-case-list"></div>
+        </div>
+        <div class="field">
+          <label>3. Seu lado</label>
+          <div class="pill-row" id="voz-side-row"></div>
+        </div>
+        <div class="field">
+          <label>4. Nível do adversário</label>
+          <div class="pill-row" id="voz-level-row">
+            <button class="pill" data-val="iniciante">Iniciante</button>
+            <button class="pill" data-val="intermediario">Intermediário</button>
+            <button class="pill" data-val="avancado">Avançado</button>
+          </div>
+        </div>
+        <button class="cta" id="voz-start-btn" disabled>Iniciar Debate por Voz</button>
+      </div>
+    </div>
+
+    <div id="voz-debate" class="hidden">
+      <div class="vs-header">
+        <span class="side-tag" id="voz-tag-student"></span>
+        <span class="vs-mark">VERSUS</span>
+        <span class="side-tag" id="voz-tag-adversary"></span>
+      </div>
+      <div style="text-align:center; font-family:'Helvetica Neue',Arial,sans-serif; font-size:11px; color:var(--parchment-dim); margin-bottom:16px;">
+        Minutos usados nesta sessão: <span id="voz-minutos">0:00</span>
+      </div>
+      <div class="transcript" id="voz-transcript"></div>
+
+      <div style="text-align:center; margin: 24px 0;">
+        <button id="voz-record-btn" style="
+          width:110px; height:110px; border-radius:50%; border:2px solid var(--wine-bright);
+          background: var(--wine); color: var(--parchment); font-family:'Helvetica Neue',Arial,sans-serif;
+          font-size:12px; letter-spacing:1px; text-transform:uppercase; cursor:pointer;">
+          Segure<br>para falar
+        </button>
+      </div>
+      <div class="thinking hidden" id="voz-thinking" style="text-align:center;">Processando sua fala...</div>
+      <div class="error hidden" id="voz-error"></div>
+
+      <div class="end-row">
+        <button class="cta ghost" id="voz-end-btn" style="flex:1;">Encerrar debate e ver feedback</button>
+      </div>
+    </div>
+
+    <div id="voz-feedback" class="hidden">
+      <div class="verdict-header">
+        <div class="label">Sentença</div>
+        <h1>Feedback do Debate por Voz</h1>
+      </div>
+      <div class="thinking" id="voz-feedback-loading">Avaliando sua argumentação...</div>
+      <div id="voz-feedback-content" class="hidden">
+        <div class="scores">
+          <div class="score-box"><div class="score-num" id="voz-score-1">–</div><div class="score-label">Solidez dos<br>argumentos</div></div>
+          <div class="score-box"><div class="score-num" id="voz-score-2">–</div><div class="score-label">Fundamentos<br>legais</div></div>
+          <div class="score-box"><div class="score-num" id="voz-score-3">–</div><div class="score-label">Capacidade<br>de réplica</div></div>
+        </div>
+        <div class="section-block"><h3>Pontos fortes</h3><div id="voz-strengths"></div></div>
+        <div class="section-block"><h3>Pontos a melhorar</h3><div id="voz-weaknesses"></div></div>
+        <div class="section-block"><h3>Sugestão de estudo</h3><div class="study-box" id="voz-study-suggestion"></div></div>
+        <button class="cta" id="voz-restart-btn">Novo debate por voz</button>
       </div>
     </div>
   </div>
@@ -1412,6 +1494,310 @@ $("fichamento-btn").onclick = async () => {
   } finally {
     $("fichamento-btn").disabled = false;
   }
+};
+
+/* =========================================================
+   TAB 7: DEBATE POR VOZ
+   ========================================================= */
+let vozState = { area: null, selectedCase: null, side: null, level: null, transcript: [], segundosUsados: 0 };
+let mediaRecorder = null;
+let audioChunks = [];
+let recordStartTime = null;
+
+function renderVozAreas() {
+  const row = $("voz-area-row");
+  row.innerHTML = "";
+  AREAS.forEach(a => {
+    const btn = document.createElement("button");
+    btn.className = "pill";
+    btn.textContent = a.label;
+    btn.onclick = () => {
+      vozState.area = a.id;
+      [...row.children].forEach(c => c.classList.remove("active"));
+      btn.classList.add("active");
+      renderVozCases();
+      checkVozReady();
+    };
+    row.appendChild(btn);
+  });
+}
+renderVozAreas();
+
+function renderVozCases() {
+  const list = $("voz-case-list");
+  list.innerHTML = "";
+  const filtered = vozState.area ? CASES.filter(c => c.area === vozState.area) : [];
+  filtered.forEach(c => {
+    const card = document.createElement("div");
+    card.className = "case-card";
+    card.innerHTML = `<div class="case-title">${c.title}</div><div class="case-meta">${c.nivel} · ${c.sides.map(s=>s.label).join(" · ")}</div>`;
+    card.onclick = () => {
+      vozState.selectedCase = c;
+      [...list.children].forEach(x => x.classList.remove("active"));
+      card.classList.add("active");
+      renderVozSides();
+      checkVozReady();
+    };
+    list.appendChild(card);
+  });
+}
+
+function renderVozSides() {
+  const row = $("voz-side-row");
+  row.innerHTML = "";
+  vozState.selectedCase.sides.forEach(s => {
+    const btn = document.createElement("button");
+    btn.className = "pill";
+    btn.textContent = s.label;
+    btn.onclick = () => {
+      vozState.side = s;
+      [...row.children].forEach(c => c.classList.remove("active"));
+      btn.classList.add("active");
+      checkVozReady();
+    };
+    row.appendChild(btn);
+  });
+}
+
+$("voz-level-row").querySelectorAll(".pill").forEach(btn => {
+  btn.onclick = () => {
+    vozState.level = btn.dataset.val;
+    [...btn.parentElement.children].forEach(c => c.classList.remove("active"));
+    btn.classList.add("active");
+    checkVozReady();
+  };
+});
+
+function checkVozReady() {
+  $("voz-start-btn").disabled = !(vozState.selectedCase && vozState.area && vozState.side && vozState.level);
+}
+
+function vozLevelInstructions() {
+  if (vozState.level === "iniciante") return "Nível INICIANTE: cometa ocasionalmente pequenos erros de raciocínio jurídico ou use argumentos mais simples e diretos. Ainda assim seja um adversário real.";
+  if (vozState.level === "avancado") return "Nível AVANÇADO: cite jurisprudência específica (pode ser plausível/ilustrativa, mas coerente), invoque princípios constitucionais relevantes, e não deixe nenhum argumento fraco passar sem ser explorado.";
+  return "Nível INTERMEDIÁRIO: use fundamentação jurídica sólida e argumentos bem estruturados, no nível esperado de um advogado competente, sem ser implacável.";
+}
+
+function buildVozSystemPrompt() {
+  return `Você é um advogado adversário em uma SUSTENTAÇÃO ORAL simulada, treinando um estudante de Direito brasileiro para audiência real.
+
+CASO: ${vozState.selectedCase.desc}
+ÁREA DO DIREITO: ${vozState.area}
+O ESTUDANTE está defendendo o lado: "${vozState.side.label}"
+VOCÊ representa o lado oposto no mesmo caso.
+
+${vozLevelInstructions()}
+
+REGRAS OBRIGATÓRIAS:
+- Nunca revele que você é uma IA. Mantenha o papel de advogado adversário o tempo todo.
+- Seja um adversário real, firme, não condescendente.
+- Respostas CURTAS e FALADAS: no máximo 2-3 frases, como em uma audiência real, para manter o ritmo do debate oral.
+- Use fundamentos jurídicos brasileiros quando fizer sentido, mas sem soar como texto escrito — fale como alguém falaria em pé, num tribunal.
+- Responda diretamente ao argumento mais recente do estudante.`;
+}
+
+$("voz-start-btn").onclick = () => {
+  vozState.transcript = [];
+  vozState.segundosUsados = 0;
+  $("voz-setup").classList.add("hidden");
+  $("voz-debate").classList.remove("hidden");
+  $("voz-tag-student").textContent = vozState.side.label;
+  $("voz-tag-adversary").textContent = "Adversário (" + vozState.level + ")";
+  $("voz-transcript").innerHTML = "";
+  atualizarMinutosVoz();
+};
+
+function atualizarMinutosVoz() {
+  const min = Math.floor(vozState.segundosUsados / 60);
+  const seg = Math.floor(vozState.segundosUsados % 60).toString().padStart(2, "0");
+  $("voz-minutos").textContent = `${min}:${seg}`;
+}
+
+function renderVozTranscript() {
+  const t = $("voz-transcript");
+  t.innerHTML = "";
+  vozState.transcript.forEach(m => {
+    const div = document.createElement("div");
+    div.className = "msg " + m.role;
+    div.innerHTML = `<div class="msg-label">${m.role === "student" ? "Você" : "Adversário"}</div>${m.text}`;
+    t.appendChild(div);
+  });
+  t.scrollIntoView({ behavior: "smooth", block: "end" });
+}
+
+const recordBtn = $("voz-record-btn");
+
+async function startRecording() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    audioChunks = [];
+    mediaRecorder = new MediaRecorder(stream);
+    mediaRecorder.ondataavailable = (e) => audioChunks.push(e.data);
+    mediaRecorder.start();
+    recordStartTime = Date.now();
+    recordBtn.style.background = "var(--brass)";
+    recordBtn.style.borderColor = "var(--brass)";
+  } catch (err) {
+    $("voz-error").textContent = "Não consegui acessar o microfone: " + err.message;
+    $("voz-error").classList.remove("hidden");
+  }
+}
+
+function stopRecording() {
+  return new Promise((resolve) => {
+    if (!mediaRecorder || mediaRecorder.state === "inactive") return resolve(null);
+    mediaRecorder.onstop = () => {
+      const blob = new Blob(audioChunks, { type: "audio/webm" });
+      resolve(blob);
+    };
+    mediaRecorder.stop();
+    mediaRecorder.stream.getTracks().forEach(t => t.stop());
+    recordBtn.style.background = "var(--wine)";
+    recordBtn.style.borderColor = "var(--wine-bright)";
+  });
+}
+
+function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result.split(",")[1]);
+    reader.onerror = () => reject(new Error("Falha ao processar o áudio."));
+    reader.readAsDataURL(blob);
+  });
+}
+
+recordBtn.addEventListener("mousedown", startRecording);
+recordBtn.addEventListener("touchstart", (e) => { e.preventDefault(); startRecording(); });
+recordBtn.addEventListener("mouseup", onRecordRelease);
+recordBtn.addEventListener("touchend", (e) => { e.preventDefault(); onRecordRelease(); });
+
+async function onRecordRelease() {
+  const blob = await stopRecording();
+  if (!blob || !recordStartTime) return;
+
+  const duracaoSegundos = (Date.now() - recordStartTime) / 1000;
+  if (duracaoSegundos < 0.5) return; // toque acidental, ignora
+
+  $("voz-error").classList.add("hidden");
+  $("voz-thinking").classList.remove("hidden");
+  recordBtn.disabled = true;
+
+  try {
+    const base64Audio = await blobToBase64(blob);
+    const apiMessages = vozState.transcript.map(m => ({
+      role: m.role === "student" ? "user" : "assistant",
+      content: m.text
+    }));
+
+    const response = await fetch("/api/voice/turn", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        audioBase64: base64Audio,
+        mimeType: "audio/webm",
+        system: buildVozSystemPrompt(),
+        messages: apiMessages,
+        max_tokens: 300
+      })
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "Falha na chamada de voz.");
+
+    vozState.transcript.push({ role: "student", text: data.transcript_estudante });
+    vozState.transcript.push({ role: "adversary", text: data.resposta_texto });
+    renderVozTranscript();
+
+    // Toca o áudio da resposta
+    const audio = new Audio("data:audio/mp3;base64," + data.audio_base64);
+    audio.play();
+
+    vozState.segundosUsados += duracaoSegundos;
+    atualizarMinutosVoz();
+  } catch (err) {
+    $("voz-error").textContent = "Erro: " + err.message;
+    $("voz-error").classList.remove("hidden");
+  } finally {
+    $("voz-thinking").classList.add("hidden");
+    recordBtn.disabled = false;
+    recordStartTime = null;
+  }
+}
+
+$("voz-end-btn").onclick = async () => {
+  $("voz-debate").classList.add("hidden");
+  $("voz-feedback").classList.remove("hidden");
+  $("voz-feedback-loading").classList.remove("hidden");
+  $("voz-feedback-content").classList.add("hidden");
+
+  const transcriptText = vozState.transcript.map(m => (m.role === "student" ? "ESTUDANTE: " : "ADVERSÁRIO: ") + m.text).join("\n\n");
+
+  const feedbackSystem = `Você é um avaliador de sustentações orais simuladas para estudantes de Direito brasileiro. Analise a transcrição de um debate falado e retorne APENAS um objeto JSON válido, sem markdown, sem crases, sem texto antes ou depois, no formato exato:
+
+{
+  "nota_solidez": <número de 0 a 10>,
+  "nota_fundamentos": <número de 0 a 10>,
+  "nota_replica": <número de 0 a 10>,
+  "pontos_fortes": ["ponto 1", "ponto 2", "ponto 3"],
+  "pontos_melhorar": ["ponto 1 com explicação do porquê está fraco", "ponto 2", "ponto 3"],
+  "sugestao_estudo": "um tema específico para estudar antes do próximo debate, com breve justificativa"
+}
+
+Caso: ${vozState.selectedCase.desc}
+Área: ${vozState.area}
+Lado do estudante: ${vozState.side.label}`;
+
+  try {
+    const raw = await callClaude(feedbackSystem, [{ role: "user", content: transcriptText }], 1200);
+    const clean = raw.replace(/```json|```/g, "").trim();
+    const fb = JSON.parse(clean);
+    $("voz-score-1").textContent = fb.nota_solidez;
+    $("voz-score-2").textContent = fb.nota_fundamentos;
+    $("voz-score-3").textContent = fb.nota_replica;
+    $("voz-strengths").innerHTML = fb.pontos_fortes.map(p => `<div class="point">${p}</div>`).join("");
+    $("voz-weaknesses").innerHTML = fb.pontos_melhorar.map(p => `<div class="point">${p}</div>`).join("");
+    $("voz-study-suggestion").textContent = fb.sugestao_estudo;
+    $("voz-feedback-loading").classList.add("hidden");
+    $("voz-feedback-content").classList.remove("hidden");
+
+    if (currentUser) {
+      const minutosSessao = Math.ceil(vozState.segundosUsados / 60);
+      await sb.from("debates").insert({
+        user_id: currentUser.id,
+        caso_id: null,
+        caso_customizado: vozState.selectedCase.title,
+        area: vozState.area,
+        lado_estudante: vozState.side.label,
+        nivel_adversario: vozState.level,
+        modo: "voz",
+        transcript: vozState.transcript,
+        nota_solidez: fb.nota_solidez,
+        nota_fundamentos: fb.nota_fundamentos,
+        nota_replica: fb.nota_replica,
+        pontos_fortes: fb.pontos_fortes,
+        pontos_melhorar: fb.pontos_melhorar,
+        sugestao_estudo: fb.sugestao_estudo,
+        encerrado_em: new Date().toISOString()
+      });
+
+      // Atualiza a cota de minutos de voz do mês
+      const { data: perfil } = await sb.from("profiles").select("minutos_voz_usados_mes").eq("id", currentUser.id).single();
+      const novoTotal = (perfil?.minutos_voz_usados_mes || 0) + minutosSessao;
+      await sb.from("profiles").update({ minutos_voz_usados_mes: novoTotal }).eq("id", currentUser.id);
+    }
+  } catch (err) {
+    $("voz-feedback-loading").textContent = "Erro ao gerar feedback: " + err.message;
+  }
+};
+
+$("voz-restart-btn").onclick = () => {
+  $("voz-feedback").classList.add("hidden");
+  $("voz-setup").classList.remove("hidden");
+  vozState = { area: null, selectedCase: null, side: null, level: null, transcript: [], segundosUsados: 0 };
+  [...$("voz-area-row").children].forEach(c => c.classList.remove("active"));
+  $("voz-case-list").innerHTML = "";
+  $("voz-side-row").innerHTML = "";
+  [...$("voz-level-row").children].forEach(c => c.classList.remove("active"));
+  $("voz-start-btn").disabled = true;
 };
 </script>
 </body>
