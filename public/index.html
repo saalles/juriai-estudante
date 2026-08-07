@@ -8,6 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/motion@11.15.0/dist/motion.js"></script>
 <style>
   :root {
     --ink: #12161F;
@@ -54,7 +55,7 @@
     100% { background-position: 200px 0; }
   }
 
-  .tab-panel { animation: fadeSlideUp 0.4s var(--ease); }
+  /* Transição de abas agora é feita via Motion (mola), não @keyframes fixo — ver trocarPainel() no script */
 
   .auth-wrap { max-width: 380px; margin: 80px auto; padding: 0 20px; animation: fadeSlideUp 0.5s var(--ease); }
   .auth-toggle { display: flex; gap: 0; margin-bottom: 20px; border: 1px solid var(--line); }
@@ -128,31 +129,46 @@
   ::selection { background: var(--wine); color: var(--parchment); }
   .app { max-width: 780px; margin: 0 auto; padding: 0 20px 60px; }
 
-  /* Top nav */
+  /* Top nav — material translúcido, fixo, conteúdo rola por baixo */
   .topbar {
     display: flex; align-items: center; justify-content: space-between;
-    padding: 22px 0 16px; border-bottom: 1px solid var(--line); margin-bottom: 20px;
-    animation: fadeSlideUp 0.5s var(--ease);
+    padding: 18px 20px; margin: 0 -20px 20px; position: sticky; top: 0; z-index: 50;
+    background: rgba(18, 22, 31, 0.68);
+    backdrop-filter: blur(20px) saturate(140%);
+    -webkit-backdrop-filter: blur(20px) saturate(140%);
   }
-  .brand { font-family: var(--font-display); font-size: 20px; letter-spacing: 0.3px; font-weight: 500; }
+  .topbar::after {
+    content: ""; position: absolute; left: 0; right: 0; bottom: -14px; height: 14px;
+    background: linear-gradient(to bottom, rgba(18,22,31,0.5), transparent);
+    pointer-events: none;
+  }
+  @media (prefers-reduced-transparency: reduce) {
+    .topbar { background: var(--ink); backdrop-filter: none; -webkit-backdrop-filter: none; border-bottom: 1px solid var(--line); }
+  }
+  .brand {
+    font-family: var(--font-display); font-size: clamp(18px, 4vw, 21px);
+    letter-spacing: -0.01em; font-weight: 500;
+  }
   .brand .accent { color: var(--brass); font-style: italic; }
   .tabs { display: flex; gap: 4px; flex-wrap: wrap; }
   .tab-btn {
     font-family: var(--font-ui);
     background: transparent; border: 1px solid transparent; color: var(--parchment-dim);
-    padding: 8px 14px; font-size: 11.5px; letter-spacing: 0.8px; text-transform: uppercase;
-    cursor: pointer; position: relative; transition: color 0.25s var(--ease);
+    padding: 8px 14px; font-size: 11.5px; letter-spacing: 0.02em; text-transform: uppercase;
+    cursor: pointer; position: relative;
+    transition: color 0.2s var(--ease), transform 0.15s cubic-bezier(0.2, 0.8, 0.2, 1);
   }
   .tab-btn::after {
     content: ""; position: absolute; left: 14px; right: 14px; bottom: -1px; height: 2px;
     background: var(--wine-bright); transform: scaleX(0); transform-origin: left;
-    transition: transform 0.3s var(--ease);
+    transition: transform 0.35s var(--ease);
   }
   .tab-btn:hover { color: var(--parchment); }
   .tab-btn.active { color: var(--parchment); }
   .tab-btn.active::after { transform: scaleX(1); }
+  .tab-btn.is-pressed { transform: scale(0.94); color: var(--parchment); }
   @media (max-width: 640px) {
-    .topbar { flex-direction: column; align-items: flex-start; gap: 12px; }
+    .topbar { flex-direction: column; align-items: flex-start; gap: 12px; padding: 16px 20px; }
   }
 
   .docket {
@@ -170,7 +186,7 @@
     font-family: var(--font-ui);
     font-size: 10px; letter-spacing: 2px; color: var(--brass);
   }
-  h1 { font-family: var(--font-display); font-size: 28px; margin: 4px 0 2px; font-weight: 500; letter-spacing: 0.2px; }
+  h1 { font-family: var(--font-display); font-size: clamp(22px, 5vw, 28px); margin: 4px 0 2px; font-weight: 500; letter-spacing: -0.01em; line-height: 1.1; }
   .sub {
     font-family: var(--font-ui);
     font-size: 11.5px; color: var(--parchment-dim);
@@ -194,13 +210,15 @@
   .pill:hover { border-color: var(--brass); color: var(--parchment); transform: translateY(-1px); }
   .pill.active { background: var(--wine); border-color: var(--wine-bright); color: var(--parchment); }
   .pill:active { transform: translateY(0); }
+  .pill.is-pressed { transform: scale(0.95); border-color: var(--brass); }
 
   .case-card {
     border: 1px solid var(--line); padding: 14px 16px; cursor: pointer;
-    margin-bottom: 8px; transition: border-color 0.2s var(--ease), transform 0.2s var(--ease), box-shadow 0.2s var(--ease);
+    margin-bottom: 8px; transition: border-color 0.2s var(--ease), transform 0.15s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.2s var(--ease);
   }
   .case-card:hover { border-color: var(--brass); transform: translateX(3px); }
   .case-card.active { border-color: var(--wine-bright); background: rgba(122,38,50,0.12); box-shadow: 0 0 0 1px var(--wine-bright) inset; }
+  .case-card.is-pressed { transform: scale(0.98); border-color: var(--brass); }
   .case-title { font-family: var(--font-display); font-size: 16px; margin-bottom: 4px; font-weight: 500; }
   .case-meta {
     font-family: var(--font-ui); font-size: 11px;
@@ -223,10 +241,11 @@
     border: 1px solid var(--wine-bright); padding: 14px 28px;
     font-size: 13px; letter-spacing: 1.5px; text-transform: uppercase;
     cursor: pointer; margin-top: 8px; width: 100%;
-    transition: background 0.2s var(--ease), transform 0.15s var(--ease), box-shadow 0.2s var(--ease);
+    transition: background 0.2s var(--ease), transform 0.12s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.2s var(--ease);
   }
   .cta:hover:not(:disabled) { background: var(--wine-bright); transform: translateY(-1px); box-shadow: 0 6px 16px rgba(0,0,0,0.35); }
   .cta:active:not(:disabled) { transform: translateY(0); }
+  .cta.is-pressed:not(:disabled) { transform: scale(0.97); box-shadow: none; }
   .cta:disabled { opacity: 0.35; cursor: not-allowed; }
   .cta.ghost { background: transparent; border: 1px solid var(--line); color: var(--parchment-dim); }
   .cta.ghost:hover:not(:disabled) { border-color: var(--brass); color: var(--parchment); box-shadow: none; }
@@ -258,9 +277,10 @@
     font-family: var(--font-ui);
     background: var(--brass); color: var(--ink); border: none;
     padding: 0 20px; font-size: 12px; letter-spacing: 1px; text-transform: uppercase;
-    cursor: pointer; min-width: 90px; transition: background 0.2s var(--ease), transform 0.15s var(--ease);
+    cursor: pointer; min-width: 90px; transition: background 0.2s var(--ease), transform 0.12s cubic-bezier(0.2, 0.8, 0.2, 1);
   }
   .send-btn:hover:not(:disabled) { background: var(--brass-bright); transform: translateY(-1px); }
+  .send-btn.is-pressed:not(:disabled) { transform: scale(0.94); }
   .send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
   .thinking { font-size: 13px; color: var(--parchment-dim); font-style: italic; padding: 8px 0; font-family: var(--font-ui); display: flex; align-items: center; gap: 8px; }
@@ -980,13 +1000,59 @@ function onAuthed(user) {
   if (data.session) onAuthed(data.session.user);
 })();
 
-/* ---------------- TAB NAVIGATION ---------------- */
+/* ---------------- FEEDBACK DE TOQUE INSTANTÂNEO ----------------
+   Responde no pointerdown, não no clique — a interface não deve
+   esperar o gesto terminar para dar sinal de vida. */
+const SELETOR_PRESSIONAVEL = '.pill, .cta:not(:disabled), .tab-btn, .case-card, .send-btn:not(:disabled)';
+document.addEventListener("pointerdown", (e) => {
+  const el = e.target.closest(SELETOR_PRESSIONAVEL);
+  if (el) el.classList.add("is-pressed");
+});
+["pointerup", "pointerleave", "pointercancel"].forEach(evento => {
+  document.addEventListener(evento, () => {
+    document.querySelectorAll(".is-pressed").forEach(el => el.classList.remove("is-pressed"));
+  });
+});
+
+const reduzMovimento = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+/* ---------------- TAB NAVIGATION ----------------
+   Transição por mola: a aba que sai e a que entra se movem
+   como uma conversa contínua, não um corte seco de visibilidade. */
+function trocarPainel(painelNovo) {
+  const painelAntigo = document.querySelector(".tab-panel:not(.hidden)");
+
+  if (reduzMovimento() || typeof Motion === "undefined") {
+    if (painelAntigo && painelAntigo !== painelNovo) painelAntigo.classList.add("hidden");
+    painelNovo.classList.remove("hidden");
+    return;
+  }
+
+  try {
+    if (painelAntigo && painelAntigo !== painelNovo) {
+      Motion.animate(painelAntigo, { opacity: [1, 0], transform: ["translateY(0px)", "translateY(-6px)"] }, { duration: 0.16, easing: "ease-in" })
+        .finished.then(() => {
+          painelAntigo.classList.add("hidden");
+          painelAntigo.style.opacity = "";
+          painelAntigo.style.transform = "";
+        }).catch(() => painelAntigo.classList.add("hidden"));
+    }
+    painelNovo.classList.remove("hidden");
+    painelNovo.style.opacity = "0";
+    Motion.animate(painelNovo, { opacity: [0, 1], transform: ["translateY(10px)", "translateY(0px)"] }, { type: "spring", stiffness: 280, damping: 28 })
+      .finished.then(() => { painelNovo.style.opacity = ""; painelNovo.style.transform = ""; }).catch(() => {});
+  } catch (err) {
+    // Se a Motion falhar por qualquer motivo, a troca de aba não pode quebrar
+    if (painelAntigo && painelAntigo !== painelNovo) painelAntigo.classList.add("hidden");
+    painelNovo.classList.remove("hidden");
+  }
+}
+
 document.querySelectorAll(".tab-btn").forEach(btn => {
   btn.onclick = () => {
     document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
-    document.querySelectorAll(".tab-panel").forEach(p => p.classList.add("hidden"));
     btn.classList.add("active");
-    $("tab-" + btn.dataset.tab).classList.remove("hidden");
+    trocarPainel($("tab-" + btn.dataset.tab));
     if (btn.dataset.tab === "progresso") loadProgresso();
   };
 });
